@@ -41,13 +41,14 @@ def find_specs(path, libs_info, level=0):
             lib_name = sp[-3]
             lib_version = sp[-2]
         printDetails("update! lib_name: %s, lib_version: %s." % (lib_name, lib_version), 0)
-        libs_info.update({lib_name + ":" + lib_version: lib_info})
-
+        if lib_name not in libs_info:
+            libs_info[lib_name] = {}
+        libs_info[lib_name][lib_version] = lib_info
 
 
 find_specs(cocoaPods_Specs, libs_info, level=0)
 with open("./libs_info.json", "w", encoding="UTF-8") as f:
     json.dump(libs_info, f)
-print("done!")
+print("done! find {} libraries!".format(len(libs_info)))
 
 
