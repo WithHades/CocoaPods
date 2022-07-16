@@ -1,6 +1,11 @@
 import json
 import os
-cocoaPods_Specs = "./Specs"
+import platform
+
+if platform.system() == "Windows":
+    cocoaPods_Specs = "./Specs"
+else:
+    cocoaPods_Specs = "../Specs/Specs"
 libs_info = {}
 
 
