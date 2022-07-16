@@ -28,10 +28,16 @@ def find_specs(path, libs_info, level=0):
         if lib_info is None:
             printDetails("parse json failed! filepath: %s" % lib_resource, 1)
             continue
-        lib_name = lib_info["name"]
-        lib_version = str(lib_info["version"])
+        if "name" in lib_info and "version" in lib_info:
+            lib_name = lib_info["name"]
+            lib_version = str(lib_info["version"])
+        else:
+            sp = lib_resource.split(os.sep)
+            lib_name = sp[-3]
+            lib_version = sp[-2]
         printDetails("update! lib_name: %s, lib_version: %s." % (lib_name, lib_version), 0)
         libs_info.update({lib_name + ":" + lib_version: lib_info})
+
 
 
 find_specs(cocoaPods_Specs, libs_info, level=0)
