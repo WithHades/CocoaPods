@@ -23,7 +23,7 @@ for lib_name in libs_info:
     lib_version = list(libs_info[lib_name].keys())[-1]
     lib_info = libs_info[lib_name][lib_version]
     if "source" not in lib_info:
-        pl(lib_name + ":" + lib_version + " does not have a source key.")
+        pl(log_f, lib_name + ":" + lib_version + " does not have a source key.")
         continue
     source = lib_info["source"]
     file_path = lib_name + "_" + lib_version
@@ -31,7 +31,7 @@ for lib_name in libs_info:
 
     # if file_path is exists and is not empty, then continue
     if os.path.exists(file_path) and os.listdir(file_path):
-        pl(lib_name + ":" + lib_version + " has already been built.")
+        pl(log_f, lib_name + ":" + lib_version + " has already been built.")
         continue
 
     with open("./cocoapods-downloader/downloader.rb", "w", encoding="UTF-8") as f:
@@ -49,7 +49,7 @@ for lib_name in libs_info:
             options += ":" + key + " => '" + source[key] + "'" + ","
         options = options[:-1] + "}"
         if len(options) > 4:
-            pl(log_f, lib_name + ":" + lib_version + " parse source file error! " + url)
+            pl(log_f, lib_name + ":" + lib_version + " parse source file error!")
             pl(log_f, json.dumps(source))
             continue
         f.write("options = {}".format(options))
@@ -64,10 +64,7 @@ for lib_name in libs_info:
     os.chdir(path)
 
     if os.path.exists(file_path) and os.listdir(file_path):
-        pl(lib_name + ":" + lib_version + " has been downloaded!")
+        pl(log_f, lib_name + ":" + lib_version + " has been downloaded!")
     else:
-        pl(lib_name + ":" + lib_version + " download failed!")
-
-
-
+        pl(log_f, lib_name + ":" + lib_version + " download failed!")
 
