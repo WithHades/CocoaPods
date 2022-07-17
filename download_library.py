@@ -44,7 +44,7 @@ for lib_name in libs_info:
         # downloader = Pod::Downloader.for_target(target_path, options)
         # downloader.download
         f.write("require './cocoapods-downloader'\n")
-        f.write("target_path = '{}'\n".format(file_path))
+        f.write("target_path = '{}'\n".format("../" + file_path))
         options = "{"
         for key in source:
             if isinstance(source[key], (str, int, float, bool)):
@@ -68,7 +68,7 @@ for lib_name in libs_info:
     path = os.getcwd()
     os.chdir("./cocoapods-downloader")
     cmd = "ruby downloader.rb"
-    subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='gbk')
+    subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='gbk').wait()
     os.chdir(path)
 
     if os.path.exists(file_path) and os.listdir(file_path):
