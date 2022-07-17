@@ -22,6 +22,7 @@ for lib_name in libs_info:
     # in most cases, the last one is the latest version
     lib_version = list(libs_info[lib_name].keys())[-1]
     lib_info = libs_info[lib_name][lib_version]
+
     if "source" not in lib_info:
         pl(log_f, lib_name + ":" + lib_version + " does not have a source key.")
         continue
@@ -46,9 +47,16 @@ for lib_name in libs_info:
         f.write("target_path = '{}'".format(file_path))
         options = "{"
         for key in source:
-            options += ":" + key + " => '" + source[key] + "'" + ","
+            if isinstance(source[key], (str, int, float, bool)):
+                options += ":" + key + " => '" + str(source[key]).lower() + "'" + ","
+            elif isinstance(source[key], list):
+                if len(source[key]) > 0:
+                    # {'headers': ['Authorization: Bearer QQ==']}
+                    options += "," + key + " => '" + str(source[key][0]).lower() + "'" + ","
+            else:
+                pl(log_f, lib_name + ":" + lib_version + " parse source file error! undefined source key type!")
         options = options[:-1] + "}"
-        if len(options) > 4:
+        if len(options) <= 5:
             pl(log_f, lib_name + ":" + lib_version + " parse source file error!")
             pl(log_f, json.dumps(source))
             continue
