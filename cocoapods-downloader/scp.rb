@@ -1,5 +1,5 @@
 require 'uri'
-require './cocoapods-downloader/remote_file'
+require './remote_file'
 
 module Pod
   module Downloader
