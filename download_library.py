@@ -43,8 +43,8 @@ for lib_name in libs_info:
         # options = Pod::Downloader.preprocess_options(options)
         # downloader = Pod::Downloader.for_target(target_path, options)
         # downloader.download
-        f.write("require './cocoapods-downloader'")
-        f.write("target_path = '{}'".format(file_path))
+        f.write("require './cocoapods-downloader'\n")
+        f.write("target_path = '{}'\n".format(file_path))
         options = "{"
         for key in source:
             if isinstance(source[key], (str, int, float, bool)):
@@ -60,10 +60,10 @@ for lib_name in libs_info:
             pl(log_f, lib_name + ":" + lib_version + " parse source file error!")
             pl(log_f, json.dumps(source))
             continue
-        f.write("options = {}".format(options))
-        f.write("options = Pod::Downloader.preprocess_options(options)")
-        f.write("downloader = Pod::Downloader.for_target(target_path, options)")
-        f.write("downloader.download")
+        f.write("options = {}\n".format(options))
+        f.write("options = Pod::Downloader.preprocess_options(options)\n")
+        f.write("downloader = Pod::Downloader.for_target(target_path, options)\n")
+        f.write("downloader.download\n")
 
     path = os.getcwd()
     os.chdir("./cocoapods-downloader")
