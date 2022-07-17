@@ -1,1 +1,11 @@
+.gitignore
+Specs/
+ALibFileParser.py
+CocoaPods.py
+jcore-ios-3.2.3.a
+jpush-extension-ios-1.1.2.a
+jpush-ios-4.6.6.a
+JPushRichVideoMessageController.o
+jpushx86_64.a
 libs_info.json
+
