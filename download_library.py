@@ -5,6 +5,9 @@ import subprocess
 
 
 # print and log
+from time import sleep
+
+
 def pl(f, msg):
     print(msg)
     f.write(msg + "\n")
@@ -69,7 +72,8 @@ for lib_name in libs_info:
     path = os.getcwd()
     os.chdir("./cocoapods-downloader")
     cmd = "ruby downloader.rb"
-    subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='gbk').wait()
+    ret = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='gbk')
+    ret.wait()
     os.chdir(path)
 
     if os.path.exists(file_path) and os.listdir(file_path):
@@ -79,6 +83,10 @@ for lib_name in libs_info:
 
     # limit the space, du -sh is too slow, so we use the df -lh
     ret = subprocess.Popen("df -lh", shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='gbk')
+    while ret.poll():
+        ret.communicate("244036962@qq.com")
+        ret.communicate(os.environ["GITTOKEN"])
+        sleep(2)
     ret.wait()
     ret = ret.stdout.read()
     space = re.findall(r"/dev/sda2 *\w*? *\w*? *(\w*?) *[0-9]+%", ret)
