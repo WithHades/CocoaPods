@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -60,6 +61,7 @@ def download(lib_name, lib_version, source):
     if os.path.exists(file_path) and os.listdir(file_path):
         return lib_name + ":" + lib_version + " has been downloaded!"
     else:
+        if os.path.exists(file_path): shutil.rmtree(file_path)
         return lib_name + ":" + lib_version + " download failed!"
 
 
@@ -85,7 +87,7 @@ with ThreadPoolExecutor(max_workers) as threadPool:
             pl(log_f, lib_name + ":" + lib_version + " does not have a source key.")
             continue
         source = lib_info["source"]
-        future = threadPool.submit(download, (lib_name, lib_version, source))
+        future = threadPool.submit(download, lib_name, lib_version, source)
         task.append(future)
 
     for future in as_completed(task):
