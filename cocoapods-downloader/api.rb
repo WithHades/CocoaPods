@@ -13,7 +13,6 @@ module Pod
         require 'open3'
         Open3.popen3(command) do |stdin, stdout, stderr, status|
           stdin.write command
-          sleep 2
           stdin.write "244036962@qq.com"
           stdin.write ENV['GITTOKEN']
           stdin.close
