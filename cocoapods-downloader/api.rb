@@ -10,19 +10,13 @@ module Pod
       def execute_command(executable, command, raise_on_failure = false)
         require 'shellwords'
         command = command.map(&:to_s).map(&:shellescape).join(' ')
-        require 'open3'
-        Open3.popen3(command) do |stdin, stdout, stderr, status|
-          stdin.write command
-          stdin.write "244036962@qq.com"
-          stdin.write ENV['GITTOKEN']
-          stdin.close
-          output = stdout.read
-          stdout.close
-          if !status.value.success?
-            output = stderr.read()
-          end
+        output = ""
+        IO.popen(command, "r+") do |io|
+          sleep 2
+          io.puts("244036962@qq.com\n")
+          io.puts("#{ENV['GITTOKEN']}\n")
+          output = io.gets
         end
-
         # output = `\n#{executable} #{command} 2>&1`
         check_exit_code!(executable, command, output) if raise_on_failure
         puts output
