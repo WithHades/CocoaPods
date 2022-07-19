@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import subprocess
 
 
@@ -75,4 +76,15 @@ for lib_name in libs_info:
         pl(log_f, lib_name + ":" + lib_version + " has been downloaded!")
     else:
         pl(log_f, lib_name + ":" + lib_version + " download failed!")
+
+    # limit the space, du -sh is too slow, so we use the df -lh
+    ret = subprocess.Popen("df -lh", shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='gbk')
+    ret.wait()
+    ret = ret.stdout.read()
+    space = re.findall(r"/dev/sda2 *\w*? *\w*? *(\w*?) *[0-9]+%", ret)
+    if len(space) > 0:
+        if int(space[0][:-1]) <= 50:
+            pl(log_f, "space is less than 50G")
+            exit()
+
 
