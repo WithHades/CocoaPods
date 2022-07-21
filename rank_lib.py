@@ -13,7 +13,7 @@ def pl(f, msg):
 
 if not os.path.exists("./logs"):
     os.mkdir("./logs")
-f = open("./logs/rank_lib_log.log", "w", encoding="utf-8")
+f = open("./logs/rank_lib_log.log", "w+", encoding="utf-8")
 
 client = pymongo.MongoClient("mongodb://lib:%s@code-analysis.org" % os.environ.get("MONGO"))
 db = client["lib"]
