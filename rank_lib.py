@@ -42,6 +42,7 @@ with open("./libs_info.json", "r", encoding="UTF-8") as f_:
             pl(f, "Error! git is {}, ret is {}.".format(git, json.dumps(ret)))
             continue
 
-        collections.insert_one(ret)
+        collections.update_one(ret, {"$set": ret}, True)
         sleep(1.4)
+
 f.close()
