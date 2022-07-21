@@ -19,8 +19,8 @@ client = pymongo.MongoClient("mongodb://lib:%s@code-analysis.org" % os.environ.g
 db = client["lib"]
 collections = db["lib_rank_info"]
 
-with open("./libs_info.json", "r", encoding="UTF-8") as f:
-    libs_info = json.load(f)
+with open("./libs_info.json", "r", encoding="UTF-8") as f_:
+    libs_info = json.load(f_)
     for lib_name in libs_info:
         # in most cases, the last one is the latest version
         lib_version = list(libs_info[lib_name].keys())[-1]
