@@ -103,6 +103,8 @@ with ThreadPoolExecutor(max_workers) as threadPool:
             pl(log_f, "space is less than 50G")
             for t in task:
                 if not t.done(): t.cancel()
+            log_f.close()
             exit(0)
+log_f.close()
 
 

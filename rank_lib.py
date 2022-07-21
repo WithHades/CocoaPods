@@ -33,8 +33,7 @@ with open("./libs_info.json", "r", encoding="UTF-8") as f_:
             continue
         repo = git[git.find("github.com") + len("github.com"):].replace(".git", "")
         if repo.endswith("/"): repo = repo[:-1]
-        headers = {"Authorization": "244036962@qq.com:" + os.environ.get("GITTOKEN")}
-        ret = requests.get("https://api.github.com/repos" + repo, headers=headers)
+        ret = requests.get("https://api.github.com/repos" + repo, auth=('244036962@qq.com', os.environ.get("GITTOKEN")))
         if ret.status_code != 200:
             pl(f, "Error! ret.status_code is {}, git is {}.".format(ret.status_code, git))
             continue
