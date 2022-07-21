@@ -32,8 +32,7 @@ with open("./libs_info.json", "r", encoding="UTF-8") as f_:
             continue
         repo = git[git.find("github.com") + len("github.com"):].replace(".git", "")
         if repo.endswith("/"): repo = repo[:-1]
-        print(1, "https://api.github.com/repos/" + repo)
-        ret = requests.get("https://api.github.com/repos/" + repo)
+        ret = requests.get("https://api.github.com/repos" + repo)
         if ret.status_code != 200:
             pl(f, "Error! ret.status_code is {}, git is {}.".format(ret.status_code, git))
             continue
