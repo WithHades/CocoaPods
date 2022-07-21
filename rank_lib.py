@@ -35,7 +35,7 @@ with open("./libs_info.json", "r", encoding="UTF-8") as f_:
         if repo.endswith("/"): repo = repo[:-1]
         ret = requests.get("https://api.github.com/repos" + repo, auth=('244036962@qq.com', os.environ.get("GITTOKEN")))
         if ret.status_code != 200:
-            pl(f, "Error! ret.status_code is {}, git is {}.".format(ret.status_code, git))
+            pl(f, "Error! ret.status_code is {}, ret.headers is {}, git is {}.".format(ret.status_code, ret.headers, git))
             continue
         ret = json.loads(ret.text)
         if "forks_count" not in ret or "stargazers_count" not in ret or "updated_at" not in ret or "watchers_count" not in ret:
