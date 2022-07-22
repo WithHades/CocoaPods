@@ -16,7 +16,7 @@ if not os.path.exists("./logs"):
     os.mkdir("./logs")
 f = open("./logs/rank_lib_log.log", "w+", encoding="utf-8")
 
-client = pymongo.MongoClient("mongodb://lib:%s@code-analysis.org" % os.environ.get("MONGO"))
+client = pymongo.MongoClient("mongodb://%s:%s@code-analysis.org:14117" % (os.environ.get("MONGOUSER"), os.environ.get("MONGOPASS")))
 db = client["lib"]
 collections = db["lib_rank_info"]
 
@@ -32,6 +32,9 @@ with open("./libs_info.json", "r", encoding="UTF-8") as f_:
         if "github" not in git:
             continue
         repo = git[git.find("github.com") + len("github.com"):].replace(".git", "")
+        lenx = len(list(collections.find({"full_name": repo[1:]})))
+        if lenx > 0:
+            continue
         if repo.endswith("/"): repo = repo[:-1]
         ret = requests.get("https://api.github.com/repos" + repo, auth=('244036962@qq.com', os.environ.get("GITTOKEN")))
         if ret.status_code != 200:
