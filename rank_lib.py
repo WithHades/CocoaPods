@@ -16,7 +16,7 @@ if not os.path.exists("./logs"):
     os.mkdir("./logs")
 f = open("./logs/rank_lib_log.log", "w+", encoding="utf-8")
 
-client = pymongo.MongoClient("mongodb://%s:%s@code-analysis.org:14117" % (os.environ.get("MONGOUSER"), os.environ.get("MONGOPASS")))
+client = pymongo.MongoClient("mongodb://%s:%s@code-analysis.org:%s" % (os.environ.get("MONGOUSER"), os.environ.get("MONGOPASS"), os.environ.get("MONGOPORT")))
 db = client["lib"]
 collections = db["lib_rank_info"]
 
