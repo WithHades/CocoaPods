@@ -101,7 +101,7 @@ for path in os.listdir(cwd_path):
             tmp = file_full_path + ".tmp"
             cmd = "clang -fsyntax-only -ferror-limit=0 -Xclang -ast-dump=json {} >> ast_result.txt".format(tmp)
             '''
-            cmd = compiler + "clang -fsyntax-only -ferror-limit=0 -Xclang -ast-dump=json {} >> ast_result.txt".format(file_full_path)
+            cmd = compiler + " -fsyntax-only -ferror-limit=0 -Xclang -ast-dump=json {} >> ast_result.txt".format(file_full_path)
             subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE).wait()
             if not os.path.exists("ast_result.txt"):
                 logger.error("Could not generate ast. file_path: %s" % file_full_path)
