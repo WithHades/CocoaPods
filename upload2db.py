@@ -13,7 +13,7 @@ with open("./libs_info.json", "r", encoding="UTF-8") as f_:
         for lib_version in list(libs_info[lib_name].keys()):
             lib_info = libs_info[lib_name][lib_version]
             try:
-                lib_info = json.loads(json.dumps(lib_info).replace("${", "_{"))
+                lib_info = json.loads(json.dumps(lib_info).replace("${", "_{").replace("$(", "_("))
                 ret = collections.update_one(lib_info, {"$set": lib_info}, True)
             except Exception as e:
                 print(e)
