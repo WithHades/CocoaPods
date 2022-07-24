@@ -1,7 +1,10 @@
 import logging
+import os
 
 
 def config_log(name, level, log_path):
+    if os.path.exists(log_path):
+        os.makedirs(log_path)
     logger = logging.getLogger(name)
     logger.setLevel(level=level)
     handler = logging.FileHandler(log_path)

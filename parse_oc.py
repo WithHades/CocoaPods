@@ -30,7 +30,7 @@ def traverse(json_data):
     return method_signs, strings
 
 
-logger = utils.config_log(name=__name__, level=logging.INFO, log_path="./logs/parse_xcfw.log")
+logger = utils.config_log(name=__name__, level=logging.INFO, log_path="./logs/parse_oc.log")
 
 client = pymongo.MongoClient("mongodb://%s:%s@code-analysis.org:%s" % (os.environ.get("MONGOUSER"), os.environ.get("MONGOPASS"), os.environ.get("MONGOPORT")))
 db = client["lib"]
