@@ -2,13 +2,10 @@ import json
 import os
 import re
 import subprocess
-from shutil import copyfile
 
 import pymongo
 
 import logging
-
-from Tools.scripts.make_ctype import method
 
 import utils
 
@@ -147,7 +144,7 @@ for path in os.listdir(cwd_path):
                 if len(list(feature_string.find({"string": string, "library": lib_info}))) > 0:
                     continue
                 feature_string.update_one({"string": string}, {"$push": {"library": lib_info}}, True)
-
+            os.remove("ast_result.txt")
 
         ''' 
             if code.count("@implementation ") > 1 or code.count("@implementation ") <= 0 :
