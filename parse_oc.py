@@ -2,6 +2,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 
 import pymongo
 
@@ -44,6 +45,12 @@ feature_lib = db["feature_lib"]
 lib_path = "../libraries"
 if not os.path.exists(lib_path):
     exit(0)
+
+if len(sys.argv) < 1:
+    print("please input compiler!")
+    exit(0)
+
+compiler = sys.argv[1]
 
 os.chdir(lib_path)
 cwd_path = os.getcwd()
@@ -94,7 +101,7 @@ for path in os.listdir(cwd_path):
             tmp = file_full_path + ".tmp"
             cmd = "clang -fsyntax-only -ferror-limit=0 -Xclang -ast-dump=json {} >> ast_result.txt".format(tmp)
             '''
-            cmd = "clang -fsyntax-only -ferror-limit=0 -Xclang -ast-dump=json {} >> ast_result.txt".format(file_full_path)
+            cmd = compiler + "clang -fsyntax-only -ferror-limit=0 -Xclang -ast-dump=json {} >> ast_result.txt".format(file_full_path)
             subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE).wait()
             if not os.path.exists("ast_result.txt"):
                 logger.error("Could not generate ast. file_path: %s" % file_full_path)
