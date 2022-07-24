@@ -4,6 +4,7 @@ import re
 import subprocess
 import sys
 
+import chardet
 import pymongo
 
 import logging
@@ -21,7 +22,15 @@ def traverse(json_data):
                 method_signs.append(json_data["mangledName"])
         if kind == "StringLiteral":
             if "value" in json_data:
-                strings.append(json_data["value"])
+                string = json_data["value"][1:-1]
+                if len(string) != 0 and len(string) % 4 == 0:
+                    model = re.findall("\d{3}", string)
+                    if len(model) == int(len(string) / 4):
+                        bytes = b''
+                        for c in model:
+                            bytes += int.to_bytes(int(c, 8), length=1, byteorder='little')
+                        string = str(bytes, chardet.detect(bytes).get('encoding'))
+                strings.append(string)
             return method_signs, strings
     if "inner" in json_data:
         for inner in json_data["inner"]:
@@ -92,8 +101,16 @@ for path in os.listdir(cwd_path):
             if not file.endswith(".m") and not file.endswith(".h"):
                 continue
             file_full_path = os.path.join(root, file)
-            with open(file_full_path, "r", encoding="UTF-8") as f:
-                code = f.read()
+            try:
+                with open(file_full_path, "r", encoding="UTF-8") as f:
+                    code = f.read()
+            except UnicodeDecodeError as e:
+                try:
+                    with open(file_full_path, "r", encoding="gbk") as f:
+                        code = f.read()
+                except Exception as e:
+                    logger.error("decode error. file_path: %s" % file_full_path)
+                    continue
             '''
             code = re.sub(r"(^ *# *(import|include))", "//\\1", code, flags=re.M)
             with open(tmp, "w", encoding="UTF-8") as f:
