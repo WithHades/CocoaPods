@@ -184,7 +184,7 @@ def parse_source_files(lib_name, lib_version, source_files, global_vals, subspec
     if isinstance(source_files, str):
         source_files = [source_files]
     for source_file in source_files:
-        if "*" not in source_files:
+        if "*" not in source_file:
             if not os.path.isdir(os.path.join(global_vals.file_path, source_file)):
                 global_vals.logger.error("maybe the lib has one oc file? file_path: %s" % global_vals.file_path)
                 continue
