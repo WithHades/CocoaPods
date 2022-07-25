@@ -46,38 +46,38 @@ def get_db_collecttions():
     return lib_source_info, feature_string, feature_method, feature_lib
 
 
-def update_library_lib(lib_name, lib_version, subspecs_name, method_signs, strings, feature_lib):
+def update_library_lib(lib_name, lib_version, subspecs_name, method_signs, strings, global_vals):
     base_query = {"name": lib_name, "version": lib_version}
     if subspecs_name is not None:
         base_query.update({"subspecs_name": subspecs_name})
     for method_sign in method_signs:
-        if len(list(feature_lib.find(base_query.update({"method": method_sign})))) > 0:
+        if len(list(global_vals.feature_lib.find(base_query.update({"method": method_sign})))) > 0:
             continue
-        feature_lib.update_one(base_query, {'$push': {'method': method_sign}}, True)
+        global_vals.feature_lib.update_one(base_query, {'$push': {'method': method_sign}}, True)
     for string in strings:
-        if len(list(feature_lib.find(base_query.update({"string": string})))) > 0:
+        if len(list(global_vals.feature_lib.find(base_query.update({"string": string})))) > 0:
             continue
-        feature_lib.update_one(base_query, {'$push': {'string': string}}, True)
+        global_vals.feature_lib.update_one(base_query, {'$push': {'string': string}}, True)
 
 
-def update_library_mtd(lib_name, lib_version, subspecs_name, method_signs, feature_method):
+def update_library_mtd(lib_name, lib_version, subspecs_name, method_signs, global_vals):
     lib_info = {"name": lib_name, "version": lib_version}
     if subspecs_name is not None:
         lib_info.update({"subspecs_name": subspecs_name})
     for method_sign in method_signs:
-        if len(list(feature_method.find({"method": method_sign, "library": lib_info}))) > 0:
+        if len(list(global_vals.feature_method.find({"method": method_sign, "library": lib_info}))) > 0:
             continue
-        feature_method.update_one({"method": method_sign}, {"$push": {"library": lib_info}}, True)
+        global_vals.feature_method.update_one({"method": method_sign}, {"$push": {"library": lib_info}}, True)
 
 
-def update_library_str(lib_name, lib_version, subspecs_name, strings, feature_string):
+def update_library_str(lib_name, lib_version, subspecs_name, strings, global_vals):
     lib_info = {"name": lib_name, "version": lib_version}
     if subspecs_name is not None:
         lib_info.update({"subspecs_name": subspecs_name})
     for string in strings:
-        if len(list(feature_string.find({"string": string, "library": lib_info}))) > 0:
+        if len(list(global_vals.feature_string.find({"string": string, "library": lib_info}))) > 0:
             continue
-        feature_string.update_one({"string": string}, {"$push": {"library": lib_info}}, True)
+        global_vals.feature_string.update_one({"string": string}, {"$push": {"library": lib_info}}, True)
 
 
 def decode_oct_str(string):
