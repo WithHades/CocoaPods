@@ -51,14 +51,12 @@ def update_library_lib(lib_name, lib_version, subspecs_name, method_signs, strin
     if subspecs_name is not None:
         base_query.update({"subspecs_name": subspecs_name})
     for method_sign in method_signs:
-        if len(list(global_vals.feature_lib.find(base_query.update({"method": method_sign})))) > 0:
+        if len(list(global_vals.feature_lib.find({**base_query, "method": method_sign}))) > 0:
             continue
-        print(base_query)
-        print(method_sign)
         global_vals.feature_lib.update_one(base_query, {'$push': {'method': method_sign}}, True)
 
     for string in strings:
-        if len(list(global_vals.feature_lib.find(base_query.update({"string": string})))) > 0:
+        if len(list(global_vals.feature_lib.find({**base_query, "string": string}))) > 0:
             continue
         global_vals.feature_lib.update_one(base_query, {'$push': {'string': string}}, True)
 
