@@ -53,7 +53,10 @@ def update_library_lib(lib_name, lib_version, subspecs_name, method_signs, strin
     for method_sign in method_signs:
         if len(list(global_vals.feature_lib.find(base_query.update({"method": method_sign})))) > 0:
             continue
+        print(base_query)
+        print(method_sign)
         global_vals.feature_lib.update_one(base_query, {'$push': {'method': method_sign}}, True)
+
     for string in strings:
         if len(list(global_vals.feature_lib.find(base_query.update({"string": string})))) > 0:
             continue
@@ -228,6 +231,7 @@ def main():
         feature_string.drop()
         feature_method.drop()
         feature_lib.drop()
+        lib_source_info, feature_string, feature_method, feature_lib = get_db_collecttions()
 
     global_vals = global_var(logger, lib_source_info, feature_string, feature_method, feature_lib, compiler=sys.argv[1])
 
