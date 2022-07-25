@@ -225,9 +225,9 @@ def main():
     logger = utils.config_log(name=__name__, level=logging.INFO, log_path="./logs/{}.log".format(os.path.basename(__file__).replace(".py", "")))
     lib_source_info, feature_string, feature_method, feature_lib = get_db_collecttions()
     if len(sys.argv) >= 3 and sys.argv[2] == "remove":
-        feature_string.remove()
-        feature_method.remove()
-        feature_lib.remove()
+        feature_string.drop()
+        feature_method.drop()
+        feature_lib.drop()
 
     global_vals = global_var(logger, lib_source_info, feature_string, feature_method, feature_lib, compiler=sys.argv[1])
 
