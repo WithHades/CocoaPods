@@ -222,7 +222,7 @@ def main():
     if not os.path.exists(lib_path):
         return
 
-    logger = utils.config_log(name=__name__, level=logging.INFO, log_path="./logs/{}.log".format(os.path.abspath(__file__)))
+    logger = utils.config_log(name=__name__, level=logging.INFO, log_path="./logs/{}.log".format(os.path.basename(__file__)))
     lib_source_info, feature_string, feature_method, feature_lib = get_db_collecttions()
     if len(sys.argv) >= 3 and sys.argv[2] == "remove":
         feature_string.remove()
