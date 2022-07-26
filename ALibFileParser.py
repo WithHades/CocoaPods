@@ -1,4 +1,5 @@
 import json
+import os.path
 
 ERROR_CODE = -1
 CPU_TYPES = {-1: "CPU_TYPE_ANY",
@@ -324,7 +325,7 @@ def parse_arch(f, offset, size=None):
         # print(object_long_name, " class infos: ", json.dumps(ret))
         class_infos.update(ret)
         f.seek(end_header_offset + int(object_size_str))
-        if end_header_offset + int(object_size_str) >= offset + size:
+        if f.tell() >= offset + size:
             break
 
     f.seek(now_offset)
@@ -370,9 +371,113 @@ def parse(path):
         return class_infos
 
 
-class_infos = parse("./jpushx86_64.a")
-print(class_infos)
-class_infos = parse("./jpush-ios-4.6.6.a")
-print(class_infos)
-class_infos = parse("./JPUSHService.o")
-print(class_infos)
+def extract_o_from_arch(f, offset, size=None, to_path=""):
+    # record now position and goto offset.
+    now_offset = f.tell()
+    f.seek(offset)
+
+    # start
+    f.read(8)  # signature
+
+    # symtab header
+    symtab_name = f.read(16).decode("utf-8")
+    '''
+    symtab_timestamp = f.read(12).decode("utf-8")
+    symtab_user_id = f.read(6).decode("utf-8")
+    symtab_group_id = f.read(6).decode("utf-8")
+    symtab_mode_str = f.read(8).decode("utf-8")
+    symtab_size_str = f.read(8).decode("utf-8")
+    '''
+    f.read(12 + 6 + 6 + 8 + 8)
+
+    while f.read(2).hex() != "600a":
+        pass
+    symtab_long_name_len = int(symtab_name.strip()[3:])
+    f.read(symtab_long_name_len)  # symtab_long_name
+
+    # symbol table
+    symbol_table_size = int.from_bytes(f.read(4), byteorder="little")
+    # symbols = parse_arch_symbol_table(f, f.tell(), symbol_table_size)
+    f.seek(symbol_table_size, 1)
+
+    # string table
+    string_table_size = int.from_bytes(f.read(4), byteorder="little")
+    f.seek(string_table_size, 1)
+
+    while True:
+        # object header
+        object_name = f.read(16).decode("utf-8")
+        '''
+        object_timestamp = f.read(12).decode("utf-8")
+        object_user_id = f.read(6).decode("utf-8")
+        object_group_id = f.read(6).decode("utf-8")
+        object_mode_str = f.read(8).decode("utf-8")
+        '''
+        f.read(12 + 6 + 6 + 8)
+
+        object_size_str = f.read(8).decode("utf-8")
+        while f.read(2).hex() != "600a":
+            pass
+        end_header_offset = f.tell()
+        object_long_name_len = int(object_name.strip()[3:])
+        object_long_name = decode(f.read(object_long_name_len))
+        target_path = os.path.join(to_path, object_long_name)
+        with open(target_path, "wb") as f_:
+            f_.write(f.read(int(object_size_str) - object_long_name_len))
+        yield target_path
+        if f.tell() >= offset + size:
+            break
+
+    f.seek(now_offset)
+
+
+def extract_o_from_archs(f, byteorder, to_path):
+    arch_num = int.from_bytes(f.read(4), byteorder=byteorder)
+    for _ in range(arch_num):
+        CPU_type = int.from_bytes(f.read(4), byteorder=byteorder)
+        CPU_type = CPU_TYPES[CPU_type] if CPU_type in CPU_TYPES else "unknow"
+        CPU_SubType = int.from_bytes(f.read(4), byteorder=byteorder)
+        offset = int.from_bytes(f.read(4), byteorder=byteorder)
+        size = int.from_bytes(f.read(4), byteorder=byteorder)
+        f.read(4)  # Align
+        to_path_ = os.path.join(to_path, CPU_type + str(CPU_SubType))
+        if not os.path.exists(to_path_):
+            os.mkdir(to_path_)
+        for path in extract_o_from_arch(f, offset, size, to_path_):
+            yield path
+
+
+def extract_o_from_a(path, to_path):
+    """
+    Returns the iterator of the o file.
+    :param path:
+    :param to_path:
+    :return:
+    """
+    with open(path, "rb") as f:
+        if not os.path.exists(to_path):
+            os.mkdir(to_path)
+
+        magic = f.read(8).hex()
+        if magic == "213c617263683e0a":
+            file_size = f.seek(0, 2) - f.seek(0)
+            extract_o_from_arch(f, 0, file_size, to_path)
+            return
+        f.seek(0)
+        magic = f.read(4).hex()
+        if magic == "cffaedfe" or magic == "cefaedfe":
+            return path
+        if magic == "cafebabe":
+            byteorder = "big"
+        elif magic == "bebafeca":
+            byteorder = "little"
+        else:
+            return ""
+        for path in extract_o_from_archs(f, byteorder, to_path):
+            yield path
+
+
+if __name__ == "__main__":
+    for path in extract_o_from_a("./libWeChatSDK.a", "./"):
+        print(path)
+
