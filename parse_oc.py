@@ -173,10 +173,7 @@ def clang(lib_name, lib_version, subspecs_name, global_vals, code_file):
     os.chdir(pwd)
 
 
-def parse_code_files(lib_name, lib_version, subspecs_name, global_vals, code_file, source_file_type):
-    file_type = code_file[code_file.find(".")+1:] if code_file.find(".") != -1 else "None"
-    if source_file_type is not None and file_type not in source_file_type:
-        return
+def parse_code_files(lib_name, lib_version, subspecs_name, global_vals, code_file):
     if code_file.endswith(".h") or code_file.endswith(".m") or code_file.endswith(".c"):
         clang(lib_name, lib_version, subspecs_name, global_vals, code_file)
 
@@ -185,18 +182,25 @@ def parse_source_files(lib_name, lib_version, source_files, global_vals, subspec
     if isinstance(source_files, str):
         source_files = [source_files]
     for source_file in source_files:
-        if "*" not in source_file:
-            if not os.path.isdir(os.path.join(global_vals.file_path, source_file)):
-                global_vals.logger.error("maybe the lib has one oc file? file_path: %s" % global_vals.file_path)
+        source_file_re = source_file.replace(".", r"\.").replace("**", r".*?").replace("*", r".*?")
+        source_file_re = source_file_re.replace("{", r"[").replace("}", r"]")
+        source_file_re = source_file_re.replace(",", "").replace(" ", "")
+        if r"/" in source_file:
+            source_file_path = os.path.join(global_vals.file_path, source_file[:source_file.rfind(r"/")])
+        elif "." in source_files:
+            source_file_path = global_vals.file_path
+        else:
+            source_file_path = os.path.join(global_vals.file_path, source_file)
+            if not os.path.exists(source_file_path):
+                global_vals.logger.error("Could not identify source file path! file_path: %s" % global_vals.file_path)
                 continue
-            source_file = os.path.join(global_vals.file_path, source_file)
-            source_file = os.path.join(source_file, "*")
-        source_file_type = parse_file_type(source_file)
-        source_file_path = source_file[:source_file.find("*")]
-        source_file_path = os.path.join(global_vals.file_path, source_file_path)
+
         for root, dirs, files in os.walk(source_file_path):
             for file in files:
-                parse_code_files(lib_name, lib_version, subspecs_name, global_vals, os.path.join(root, file), source_file_type)
+                code_file = os.path.join(root, file)
+                if len(re.findall(source_file_re, code_file)) <= 0:
+                    continue
+                parse_code_files(lib_name, lib_version, subspecs_name, global_vals, code_file)
 
 
 def parse_source_info(lib_name, lib_version, source_info, global_vals, subspecs_name=None):
@@ -212,6 +216,10 @@ def parse_source_info(lib_name, lib_version, source_info, global_vals, subspecs_
         for subspec in source_info["subspecs"]:
             space_name = subspec["name"] if "name" in subspec else "unknown"
             parse_source_info(lib_name, lib_version, subspec, global_vals, space_name)
+
+
+def parse_libraries():
+    pass
 
 
 def main():
@@ -247,6 +255,7 @@ def main():
             logger.error("ERROR: Could not find library in database! file_path: %s" % file_path)
             continue
         parse_source_info(lib_name, lib_version, ret, global_vals)
+        parse_libraries()
 
 
 if __name__ == '__main__':
