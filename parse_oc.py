@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import re
@@ -9,19 +10,22 @@ import pymongo
 
 import logging
 
+from clang.cindex import Index, CursorKind, Config
+
 import utils
 
 
 class global_var:
     file_path = None
 
-    def __init__(self, logger, lib_source_info, feature_string, feature_method, feature_lib, compiler):
+    def __init__(self, logger, lib_source_info, feature_string, feature_method, feature_lib, compiler, libclang):
         self.logger = logger
         self.lib_source_info = lib_source_info
         self.feature_string = feature_string
         self.feature_method = feature_method
         self.feature_lib = feature_lib
         self.compiler = compiler
+        self.libclang = libclang
 
 
 def parse_file_type(source_files):
@@ -144,7 +148,7 @@ def clang(lib_name, lib_version, subspecs_name, global_vals, code_file):
         return
     pwd = os.getcwd()
     os.chdir(os.path.dirname(code_file))
-    cmd = global_vals.compiler + " -fsyntax-only -ferror-limit=0 -Xclang -ast-dump=json {} >> ast_result.txt".format(code_file)
+    cmd = global_vals.compiler + " -fsyntax-only -fno-color-diagnostics -ferror-limit=0 -Xclang -ast-dump=json {} >> ast_result.txt".format(code_file)
     subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE).wait()
     if not os.path.exists("ast_result.txt"):
         global_vals.logger.error("Could not generate ast. file_path: %s, error code is 0." % code_file)
@@ -153,12 +157,12 @@ def clang(lib_name, lib_version, subspecs_name, global_vals, code_file):
         data = f.read()
         data_len = f.seek(0, 2) - f.seek(0)
     if "StringLiteral" not in data and "ObjCMethodDecl" not in data:
-        global_vals.logger.error("Could not generate ast. file_path: %s, error code is 1." % code_file)
+        global_vals.logger.error("Could not find StringLiteral or ObjCMethodDecl in ast file. file_path: %s." % code_file)
         return
     method_signs, strings = parse_ast(data, data_len, global_vals, code_file)
     os.remove("ast_result.txt")
 
-    cmd = global_vals.compiler + " -fsyntax-only -ferror-limit=0 -Xclang -dump-tokens {} >> tokens_result.txt 2>&1".format(code_file)
+    cmd = global_vals.compiler + " -fsyntax-only -fno-color-diagnostics -ferror-limit=0 -Xclang -dump-tokens {} >> tokens_result.txt 2>&1".format(code_file)
     subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE).wait()
     if not os.path.exists("tokens_result.txt"):
         global_vals.logger.error("Could not generate tokens. file_path: %s, error code is 2." % code_file)
@@ -167,15 +171,41 @@ def clang(lib_name, lib_version, subspecs_name, global_vals, code_file):
             data = f.read()
         ret = re.findall(r"string_literal '\"([\s\S]*?)\"'.*Loc=<", data)
         strings += ret
+        os.remove("tokens_result.txt")
     update_library_lib(lib_name, lib_version, subspecs_name, method_signs, strings, global_vals)
     update_library_mtd(lib_name, lib_version, subspecs_name, method_signs, global_vals)
     update_library_str(lib_name, lib_version, subspecs_name, strings, global_vals)
     os.chdir(pwd)
 
 
+def traverse_libclang_ast(lib_name, lib_version, subspecs_name, global_vals, cursor):
+    if cursor.kind == CursorKind.STRING_LITERAL:
+        string = cursor.displayname[1:-1]
+        string = decode_oct_str(string)
+        update_library_lib(lib_name, lib_version, subspecs_name, [], [string], global_vals)
+        update_library_str(lib_name, lib_version, subspecs_name, [string], global_vals)
+        return
+    if cursor.kind == CursorKind.OBJC_CLASS_METHOD_DECL or cursor.kind == CursorKind.OBJC_INSTANCE_METHOD_DECL:
+        method_sign = "+" if cursor.kind == CursorKind.OBJC_CLASS_METHOD_DECL else "-"
+        method_sign += "[{} {}]".format(cursor.lexical_parent.displayname, cursor.displayname)
+        update_library_lib(lib_name, lib_version, subspecs_name, [method_sign], [], global_vals)
+        update_library_mtd(lib_name, lib_version, subspecs_name, [method_sign], global_vals)
+    for cur in cursor.get_children():
+        traverse_libclang_ast(cur)
+
+
+def libclang(lib_name, lib_version, subspecs_name, global_vals, code_file):
+    index = Index.create()
+    tu = index.parse(code_file)
+    traverse_libclang_ast(lib_name, lib_version, subspecs_name, global_vals, tu.cursor)
+
+
 def parse_code_files(lib_name, lib_version, subspecs_name, global_vals, code_file):
     if code_file.endswith(".h") or code_file.endswith(".m") or code_file.endswith(".c"):
-        clang(lib_name, lib_version, subspecs_name, global_vals, code_file)
+        if global_vals.libclang is not None:
+            libclang(lib_name, lib_version, subspecs_name, global_vals, code_file)
+        else:
+            clang(lib_name, lib_version, subspecs_name, global_vals, code_file)
 
 
 def parse_source_files(lib_name, lib_version, source_files, global_vals, subspecs_name=None):
@@ -222,24 +252,21 @@ def parse_libraries():
     pass
 
 
-def main():
-    if len(sys.argv) < 1:
-        print("please input compiler!")
-        return
+def main(compiler, drop, libclang):
 
     lib_path = "../libraries"
     if not os.path.exists(lib_path):
         return
-
+    if libclang is not None:
+        Config.set_library_file(libclang)
     logger = utils.config_log(name=__name__, level=logging.INFO, log_path="./logs/{}.log".format(os.path.basename(__file__).replace(".py", "")))
     lib_source_info, feature_string, feature_method, feature_lib = get_db_collecttions()
-    if len(sys.argv) >= 3 and sys.argv[2] == "remove":
+    if drop:
         feature_string.drop()
         feature_method.drop()
         feature_lib.drop()
-        lib_source_info, feature_string, feature_method, feature_lib = get_db_collecttions()
 
-    global_vals = global_var(logger, lib_source_info, feature_string, feature_method, feature_lib, compiler=sys.argv[1])
+    global_vals = global_var(logger, lib_source_info, feature_string, feature_method, feature_lib, compiler, libclang)
 
     os.chdir(lib_path)
     cwd_path = os.getcwd()
@@ -259,4 +286,9 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description='The parser for libraries.')
+    parser.add_argument('--compiler', default="clang", help="the path of clang compiler.")
+    parser.add_argument('--drop', default=False, action='store_true', help="Does drop the clooections of feature_method, feature_string and feature_lib.")
+    parser.add_argument('--libclang', help="the path of libclang.so.")
+    args = parser.parse_args()
+    main(args.compiler, args.drop, args.libclang)
