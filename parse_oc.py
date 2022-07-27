@@ -213,7 +213,7 @@ def parse_source_files(lib_name, lib_version, source_files, global_vals, subspec
     if isinstance(source_files, str):
         source_files = [source_files]
     for source_file in source_files:
-        source_file_re = source_file.replace(".", r"\.").replace("**", r".*?").replace("*", r".*?")
+        source_file_re = source_file.replace("*", "_").replace(".", r"\.").replace("__", r".*?").replace("_", r".*?")
         source_file_re = source_file_re.replace("{", r"[").replace("}", r"]")
         source_file_re = source_file_re.replace(",", "").replace(" ", "")
         for root, dirs, files in os.walk(global_vals.file_path):
@@ -222,9 +222,8 @@ def parse_source_files(lib_name, lib_version, source_files, global_vals, subspec
                 try:
                     if len(re.findall(source_file_re, code_file)) <= 0: continue
                 except Exception as e:
-                    print(e)
-                    print(source_file_re)
-                    print(code_file)
+                    global_vals.logger.error("reg is error! source_file_re: %s, code_file: %s" % (source_file_re, code_file))
+                    continue
                 parse_code_files(lib_name, lib_version, subspecs_name, global_vals, code_file)
 
 
@@ -247,14 +246,18 @@ def parse_a_file(lib_name, lib_version, vendored_libraries, global_vals, subspec
     if isinstance(vendored_libraries, str):
         vendored_libraries = [vendored_libraries]
     for vendored_library in vendored_libraries:
-        vendored_library_re = vendored_library.replace(".", r"\.").replace("**", r".*?").replace("*", r".*?")
+        vendored_library_re = vendored_library.replace("*", "_").replace(".", r"\.").replace("__", r".*?").replace("_", r".*?")
         vendored_library_re = vendored_library_re.replace("{", r"[").replace("}", r"]")
         vendored_library_re = vendored_library_re.replace(",", "").replace(" ", "")
 
         for root, dirs, files in os.walk(global_vals.file_path):
             for file in files:
                 code_file = os.path.join(root, file)
-                if len(re.findall(vendored_library_re, code_file)) <= 0: continue
+                try:
+                    if len(re.findall(vendored_library_re, code_file)) <= 0: continue
+                except Exception as e:
+                    global_vals.logger.error("reg is error! source_file_re: %s, code_file: %s" % (vendored_library_re, code_file))
+                    continue
                 if not code_file.endswith(".a"): continue
                 method_signs_dict, strings = parse(code_file)
                 method_signs = []
