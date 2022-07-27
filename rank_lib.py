@@ -34,7 +34,7 @@ with open("./libs_info.json", "r", encoding="UTF-8") as f_:
         repo = git[git.find("github.com") + len("github.com"):].replace(".git", "")
         lenx = len(list(collections.find({"full_name": repo[1:]})))
         if lenx > 0:
-            collections.update_one(ret, {"$set": {"lib_name": lib_name, "lib_version": lib_version}}, True)
+            collections.update_one({"full_name": repo[1:]}, {"$set": {"lib_name": lib_name, "lib_version": lib_version}}, True)
             continue
         if repo.endswith("/"): repo = repo[:-1]
         ret = requests.get("https://api.github.com/repos" + repo, auth=('244036962@qq.com', os.environ.get("GITTOKEN")))
