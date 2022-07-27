@@ -1,4 +1,5 @@
 import json
+import math
 import os.path
 
 ERROR_CODE = -1
@@ -101,7 +102,7 @@ def trans_relo(f, relo_table, var_len, byteorder):
         return int.from_bytes(f.read(var_len), byteorder=byteorder)
 
 
-def parse_class(f, lib_offset, class_offset, relo_table, var_len, byteorder, segments, methType):
+def parse_class(f, lib_offset, class_offset, relo_table, var_len, byteorder, segments, file_type, methType):
     class_infos = {}
     offet = f.tell()
     # parse class struct
@@ -110,12 +111,14 @@ def parse_class(f, lib_offset, class_offset, relo_table, var_len, byteorder, seg
     isa_vm = trans_relo(f, relo_table, var_len, byteorder)
     if isa_vm != 0:
         class_offset = isa_vm - segments["__DATA"]["__objc_data"]["addr"] + segments["__DATA"]["__objc_data"]["offset"]
-        class_info = parse_class(f, lib_offset, class_offset, relo_table, var_len, byteorder, segments, methType="+")
+        class_info = parse_class(f, lib_offset, class_offset, relo_table, var_len, byteorder, segments, file_type, methType="+")
         update(class_info, class_infos)
     f.read(var_len * 3)  # skip superclass/cache/vtable
     # class data
     # const_offset_vm should be 0x2C9B
     const_offset_vm = trans_relo(f, relo_table, var_len, byteorder)
+    if file_type == "DYLIB" and const_offset_vm % 8 != 0:
+        const_offset_vm = math.floor(const_offset_vm / 8) * 8
     const_offset = const_offset_vm - segments["__DATA"]["__objc_const"]["addr"] + segments["__DATA"]["__objc_const"]["offset"]
     # parse class info
     f.seek(lib_offset + const_offset)
@@ -129,7 +132,10 @@ def parse_class(f, lib_offset, class_offset, relo_table, var_len, byteorder, seg
         # class doesn't have the method of methType
         f.seek(offet)
         return class_infos
-    class_name_offset = class_name_offset_vm - segments["__TEXT"]["__objc_classname"]["addr"] + segments["__TEXT"]["__objc_classname"]["offset"]
+    if file_type != "DYLIB":
+        class_name_offset = class_name_offset_vm - segments["__TEXT"]["__objc_classname"]["addr"] + segments["__TEXT"]["__objc_classname"]["offset"]
+    else:
+        class_name_offset = class_name_offset_vm
     f.seek(lib_offset + class_name_offset)
     class_name = readString(f)
     class_info = {class_name: []}
@@ -237,7 +243,12 @@ def parse_mach(f):
 
         # parse segments info
         if lc_cmd == LCName.LC_SEGMENT_64 or lc_cmd == LCName.LC_SEGEMENT:
-            segments = parse_segments(f, arch, byteorder)
+            segments_ = parse_segments(f, arch, byteorder)
+            for segment in segments_:
+                if segment in segments:
+                    segments[segment].update(segments_[segment])
+                else:
+                    segments[segment] = segments_[segment]
         elif lc_cmd == LCName.LC_SYMTAB:
             symbols = parse_symtab(f, offset, var_len, byteorder)
         else:
@@ -273,13 +284,14 @@ def parse_mach(f):
                     relo_table[offset + re_addr] = symbol_value
 
     class_infos = {}
+
     if "__DATA" in segments and "__objc_classlist" in segments["__DATA"]:
         # handle class and method
         f.seek(offset + segments["__DATA"]["__objc_classlist"]["offset"])
         for _ in range(int(segments["__DATA"]["__objc_classlist"]["size"] / var_len)):
             class_item_vm = trans_relo(f, relo_table, var_len, byteorder)
             class_offset = class_item_vm - segments["__DATA"]["__objc_data"]["addr"] + segments["__DATA"]["__objc_data"]["offset"]
-            class_info = parse_class(f, offset, class_offset, relo_table, var_len, byteorder, segments, methType="-")
+            class_info = parse_class(f, offset, class_offset, relo_table, var_len, byteorder, segments, file_type, methType="-")
             update(class_info, class_infos)
 
     strings = []
@@ -525,7 +537,13 @@ if __name__ == "__main__":
     if False:
         for path in extract_o_from_a("./libABPicker.a", "./"):
             print(path)
-    ret = parse("./libWeChatSDK.a")
+    # from macholibre import parse as parse_
+
+    # mach-o file path
+    path = r"D:\workplace\python\angr\viewer-sdk-ios-5b80ecde8420cad132c1863b3ccb1d5206acf1ae\AntourageWidget.xcframework\ios-arm64\AntourageWidget.framework\AntourageWidget"
+
+    # return dict
+    ret = parse(path)
     print(ret[0])
     print(ret[1])
 
