@@ -47,6 +47,6 @@ with open("./libs_info.json", "r", encoding="UTF-8") as f_:
             continue
         ret.update({"lib_name": lib_name, "lib_version": lib_version})
         collections.update_one(ret, {"$set": ret}, True)
-        sleep(1.4)
+        sleep(0.8)
 
 f.close()
