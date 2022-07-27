@@ -210,7 +210,7 @@ def libclang(lib_name, lib_version, subspecs_name, global_vals, code_file):
     try:
         traverse_libclang_ast(lib_name, lib_version, subspecs_name, global_vals, tu.cursor)
     except Exception as e:
-        global_vals.logger.error("An error occured in traverse_libclang_ast, code_file: %s, error: %s", (code_file, e))
+        global_vals.logger.error("An error occured in traverse_libclang_ast, code_file: %s, error: %s", (code_file, e.args[0]))
 
 
 def parse_code_files(lib_name, lib_version, subspecs_name, global_vals, code_file):
@@ -219,7 +219,7 @@ def parse_code_files(lib_name, lib_version, subspecs_name, global_vals, code_fil
             try:
                 libclang(lib_name, lib_version, subspecs_name, global_vals, code_file)
             except Exception as e:
-                global_vals.logger.error("An error occured in parse_code_files, code_file: %s, error: %s", (code_file, e))
+                global_vals.logger.error("An error occured in parse_code_files, code_file: %s, error: %s", (code_file, e.args[0]))
         else:
             clang(lib_name, lib_version, subspecs_name, global_vals, code_file)
 
@@ -277,7 +277,7 @@ def parse_a_file(lib_name, lib_version, vendored_libraries, global_vals, subspec
                 try:
                     method_signs_dict, strings = parse(code_file)
                 except Exception as e:
-                    global_vals.logger.error("An error occured in parse_a_file, code_file: %s, error: %s", (code_file, e))
+                    global_vals.logger.error("An error occured in parse_a_file, code_file: %s, error: %s", (code_file, e.args[0]))
                     continue
                 method_signs = []
                 for key in method_signs_dict:
