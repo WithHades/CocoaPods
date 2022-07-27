@@ -197,7 +197,7 @@ def traverse_libclang_ast(lib_name, lib_version, subspecs_name, global_vals, cur
             method_sign += "[{} {}]".format(cursor.lexical_parent.displayname, cursor.displayname)
         else:
             usr = cursor.get_usr()
-            method_sign += "[{} {}]".format(usr[usr.find(")"+1):usr.rfind(")")], cursor.displayname)
+            method_sign += "[{} {}]".format(usr[usr.find(")") + 1: usr.rfind(")")], cursor.displayname)
         update_library_lib(lib_name, lib_version, subspecs_name, [method_sign], [], global_vals)
         update_library_mtd(lib_name, lib_version, subspecs_name, [method_sign], global_vals)
     for cur in cursor.get_children():
