@@ -6,5 +6,10 @@ export GITTOKEN=
 ## 说明
 1. spider_library.py 统计Specs项目下所有的三方库信息，并写入json文件
 2. download_library.py 调用cocoapods downloader下载三方库源码
+需要下载安装expect，默认位置在/usr/bin/expect，其他位置需要在downloader.exp中指定
+赋予执行权限```chmod +x ./downloader.exp```
 3. rank_lib.py 查询托管在github上面的三方库的信息并写入mongo数据库
 4. upload2db.py 将json文件中的三方库信息迁移到mongo数据库，方便数据整理
+
+
+
