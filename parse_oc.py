@@ -157,11 +157,11 @@ def clang(lib_name, lib_version, subspecs_name, global_vals, code_file):
     with open("ast_result.txt", "r", encoding="UTF-8") as f:
         data = f.read()
         data_len = f.seek(0, 2) - f.seek(0)
+    os.remove("ast_result.txt")
     if "StringLiteral" not in data and "ObjCMethodDecl" not in data:
         global_vals.logger.error("Could not find StringLiteral or ObjCMethodDecl in ast file. file_path: %s." % code_file)
         return
     method_signs, strings = parse_ast(data, data_len, global_vals, code_file)
-    os.remove("ast_result.txt")
 
     cmd = global_vals.compiler + " -fsyntax-only -fno-color-diagnostics -ferror-limit=0 -Xclang -dump-tokens {} >> tokens_result.txt 2>&1".format(code_file)
     subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE).wait()
@@ -170,9 +170,9 @@ def clang(lib_name, lib_version, subspecs_name, global_vals, code_file):
     else:
         with open("tokens_result.txt", "r", encoding="UTF-8") as f:
             data = f.read()
+        os.remove("tokens_result.txt")
         ret = re.findall(r"string_literal '\"([\s\S]*?)\"'.*Loc=<", data)
         strings += ret
-        os.remove("tokens_result.txt")
     update_library_lib(lib_name, lib_version, subspecs_name, method_signs, strings, global_vals)
     update_library_mtd(lib_name, lib_version, subspecs_name, method_signs, global_vals)
     update_library_str(lib_name, lib_version, subspecs_name, strings, global_vals)
@@ -180,15 +180,24 @@ def clang(lib_name, lib_version, subspecs_name, global_vals, code_file):
 
 
 def traverse_libclang_ast(lib_name, lib_version, subspecs_name, global_vals, cursor):
-    if cursor.kind == CursorKind.STRING_LITERAL:
+    kind = None
+    try:
+        kind = cursor.kind
+    except:
+        pass
+    if kind == CursorKind.STRING_LITERAL:
         string = cursor.displayname[1:-1]
         string = decode_oct_str(string)
         update_library_lib(lib_name, lib_version, subspecs_name, [], [string], global_vals)
         update_library_str(lib_name, lib_version, subspecs_name, [string], global_vals)
         return
-    if cursor.kind == CursorKind.OBJC_CLASS_METHOD_DECL or cursor.kind == CursorKind.OBJC_INSTANCE_METHOD_DECL:
-        method_sign = "+" if cursor.kind == CursorKind.OBJC_CLASS_METHOD_DECL else "-"
-        method_sign += "[{} {}]".format(cursor.lexical_parent.displayname, cursor.displayname)
+    if kind == CursorKind.OBJC_CLASS_METHOD_DECL or kind == CursorKind.OBJC_INSTANCE_METHOD_DECL:
+        method_sign = "+" if kind == CursorKind.OBJC_CLASS_METHOD_DECL else "-"
+        if cursor.lexical_parent.displayname != "":
+            method_sign += "[{} {}]".format(cursor.lexical_parent.displayname, cursor.displayname)
+        else:
+            usr = cursor.get_usr()
+            method_sign += "[{} {}]".format(usr[usr.find(")"+1):usr.rfind(")")], cursor.displayname)
         update_library_lib(lib_name, lib_version, subspecs_name, [method_sign], [], global_vals)
         update_library_mtd(lib_name, lib_version, subspecs_name, [method_sign], global_vals)
     for cur in cursor.get_children():
@@ -198,13 +207,19 @@ def traverse_libclang_ast(lib_name, lib_version, subspecs_name, global_vals, cur
 def libclang(lib_name, lib_version, subspecs_name, global_vals, code_file):
     index = Index.create()
     tu = index.parse(code_file)
-    traverse_libclang_ast(lib_name, lib_version, subspecs_name, global_vals, tu.cursor)
+    try:
+        traverse_libclang_ast(lib_name, lib_version, subspecs_name, global_vals, tu.cursor)
+    except Exception as e:
+        global_vals.logger.error("An error occured in traverse_libclang_ast, code_file: %s, error: %s", (code_file, e))
 
 
 def parse_code_files(lib_name, lib_version, subspecs_name, global_vals, code_file):
     if code_file.endswith(".h") or code_file.endswith(".m") or code_file.endswith(".c"):
         if global_vals.libclang is not None:
-            libclang(lib_name, lib_version, subspecs_name, global_vals, code_file)
+            try:
+                libclang(lib_name, lib_version, subspecs_name, global_vals, code_file)
+            except Exception as e:
+                global_vals.logger.error("An error occured in parse_code_files, code_file: %s, error: %s", (code_file, e))
         else:
             clang(lib_name, lib_version, subspecs_name, global_vals, code_file)
 
@@ -259,7 +274,11 @@ def parse_a_file(lib_name, lib_version, vendored_libraries, global_vals, subspec
                     global_vals.logger.error("reg is error! source_file_re: %s, code_file: %s" % (vendored_library_re, code_file))
                     continue
                 if not code_file.endswith(".a"): continue
-                method_signs_dict, strings = parse(code_file)
+                try:
+                    method_signs_dict, strings = parse(code_file)
+                except Exception as e:
+                    global_vals.logger.error("An error occured in parse_a_file, code_file: %s, error: %s", (code_file, e))
+                    continue
                 method_signs = []
                 for key in method_signs_dict:
                     method_signs = list(set(method_signs).union(set(method_signs_dict[key])))
