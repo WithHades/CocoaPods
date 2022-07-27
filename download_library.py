@@ -51,7 +51,7 @@ def download(lib_name, lib_version, source):
         f.write("downloader = Pod::Downloader.for_target(target_path, options)\n")
         f.write("downloader.download\n")
 
-    cmd = "python3 ./cocoapods-downloader/downloader.py " + down_file
+    cmd = "./cocoapods-downloader/downloader.sh " + down_file
     ret = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='gbk')
     ret.wait()
 
