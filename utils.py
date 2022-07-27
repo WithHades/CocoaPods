@@ -3,7 +3,7 @@ import os
 
 
 def config_log(name, level, log_path):
-    if not os.path.exists(log_path):
+    if not os.path.exists(os.path.dirname(log_path)):
         os.makedirs(os.path.dirname(log_path))
     logger = logging.getLogger(name)
     logger.setLevel(level=level)
