@@ -13,6 +13,7 @@ import logging
 from clang.cindex import Index, CursorKind, Config
 
 import utils
+from CocoaPods.ALibFileParser import parse
 
 
 class global_var:
@@ -191,7 +192,7 @@ def traverse_libclang_ast(lib_name, lib_version, subspecs_name, global_vals, cur
         update_library_lib(lib_name, lib_version, subspecs_name, [method_sign], [], global_vals)
         update_library_mtd(lib_name, lib_version, subspecs_name, [method_sign], global_vals)
     for cur in cursor.get_children():
-        traverse_libclang_ast(cur)
+        traverse_libclang_ast(lib_name, lib_version, subspecs_name, global_vals, cur)
 
 
 def libclang(lib_name, lib_version, subspecs_name, global_vals, code_file):
@@ -215,21 +216,10 @@ def parse_source_files(lib_name, lib_version, source_files, global_vals, subspec
         source_file_re = source_file.replace(".", r"\.").replace("**", r".*?").replace("*", r".*?")
         source_file_re = source_file_re.replace("{", r"[").replace("}", r"]")
         source_file_re = source_file_re.replace(",", "").replace(" ", "")
-        if r"/" in source_file:
-            source_file_path = os.path.join(global_vals.file_path, source_file[:source_file.rfind(r"/")])
-        elif "." in source_files:
-            source_file_path = global_vals.file_path
-        else:
-            source_file_path = os.path.join(global_vals.file_path, source_file)
-            if not os.path.exists(source_file_path):
-                global_vals.logger.error("Could not identify source file path! file_path: %s" % global_vals.file_path)
-                continue
-
-        for root, dirs, files in os.walk(source_file_path):
+        for root, dirs, files in os.walk(global_vals.file_path):
             for file in files:
                 code_file = os.path.join(root, file)
-                if len(re.findall(source_file_re, code_file)) <= 0:
-                    continue
+                if len(re.findall(source_file_re, code_file)) <= 0: continue
                 parse_code_files(lib_name, lib_version, subspecs_name, global_vals, code_file)
 
 
@@ -248,8 +238,37 @@ def parse_source_info(lib_name, lib_version, source_info, global_vals, subspecs_
             parse_source_info(lib_name, lib_version, subspec, global_vals, space_name)
 
 
-def parse_libraries():
-    pass
+def parse_a_file(lib_name, lib_version, vendored_libraries, global_vals, subspecs_name=None):
+    if isinstance(vendored_libraries, str):
+        vendored_libraries = [vendored_libraries]
+    for vendored_library in vendored_libraries:
+        vendored_library_re = vendored_library.replace(".", r"\.").replace("**", r".*?").replace("*", r".*?")
+        vendored_library_re = vendored_library_re.replace("{", r"[").replace("}", r"]")
+        vendored_library_re = vendored_library_re.replace(",", "").replace(" ", "")
+
+        for root, dirs, files in os.walk(global_vals.file_path):
+            for file in files:
+                code_file = os.path.join(root, file)
+                if len(re.findall(vendored_library_re, code_file)) <= 0: continue
+                if not code_file.endswith(".a"): continue
+                method_signs_dict, strings = parse(code_file)
+                method_signs = []
+                for key in method_signs_dict:
+                    method_signs = list(set(method_signs).union(set(method_signs_dict[key])))
+                update_library_lib(lib_name, lib_version, subspecs_name, method_signs, strings, global_vals)
+                update_library_mtd(lib_name, lib_version, subspecs_name, method_signs, global_vals)
+                update_library_str(lib_name, lib_version, subspecs_name, strings, global_vals)
+
+
+def parse_libraries(lib_name, lib_version, source_info, global_vals, subspecs_name=None):
+    if "vendored_libraries" not in source_info and "subspecs" not in source_info:
+        return
+    if "vendored_libraries" in source_info:
+        parse_a_file(lib_name, lib_version, source_info["vendored_libraries"], global_vals, subspecs_name)
+    else:
+        for subspec in source_info["subspecs"]:
+            space_name = subspec["name"] if "name" in subspec else "unknown"
+            parse_libraries(lib_name, lib_version, subspec, global_vals, space_name)
 
 
 def main(compiler, drop, libclang):
@@ -282,7 +301,7 @@ def main(compiler, drop, libclang):
             logger.error("ERROR: Could not find library in database! file_path: %s" % file_path)
             continue
         parse_source_info(lib_name, lib_version, ret, global_vals)
-        parse_libraries()
+        parse_libraries(lib_name, lib_version, ret, global_vals)
 
 
 if __name__ == '__main__':
