@@ -1,8 +1,12 @@
 import os
-import subprocess
 import sys
 
+import pexpect
+
 os.chdir("./cocoapods-downloader")
-cmd = "ruby " + sys.argv[1]
-ret = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='gbk')
-ret.wait(timeout=10 * 60)
+process = pexpect.spawn('ruby ' + sys.argv[1])
+process.expect(['sername', pexpect.EOF, pexpect.TIMEOUT])
+process.sendline('')
+process.expect(['assword', pexpect.EOF, pexpect.TIMEOUT])
+process.sendline('')
+
