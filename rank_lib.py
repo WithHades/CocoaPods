@@ -34,6 +34,7 @@ with open("./libs_info.json", "r", encoding="UTF-8") as f_:
         repo = git[git.find("github.com") + len("github.com"):].replace(".git", "")
         lenx = len(list(collections.find({"full_name": repo[1:]})))
         if lenx > 0:
+            collections.update_one(ret, {"$set": {"lib_name": lib_name}}, True)
             continue
         if repo.endswith("/"): repo = repo[:-1]
         ret = requests.get("https://api.github.com/repos" + repo, auth=('244036962@qq.com', os.environ.get("GITTOKEN")))
@@ -44,7 +45,7 @@ with open("./libs_info.json", "r", encoding="UTF-8") as f_:
         if "forks_count" not in ret or "stargazers_count" not in ret or "updated_at" not in ret or "watchers_count" not in ret:
             pl(f, "Error! git is {}, ret is {}.".format(git, json.dumps(ret)))
             continue
-
+        ret.update({"lib_name": lib_name})
         collections.update_one(ret, {"$set": ret}, True)
         sleep(1.4)
 
