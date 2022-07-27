@@ -1,3 +1,4 @@
+import argparse
 import json
 import logging
 import os
@@ -5,11 +6,11 @@ import re
 import shutil
 import subprocess
 from asyncio import as_completed
+from concurrent.futures import ThreadPoolExecutor
 
 import pymongo
 
 import utils
-from CocoaPods.download_library import threadPool
 
 
 def download(lib_name, lib_version, source):
@@ -66,7 +67,8 @@ def download(lib_name, lib_version, source):
         return lib_name + ":" + lib_version + " download failed!"
 
 
-def main():
+def main(max_workers):
+
     logger = utils.config_log(name=__name__, level=logging.INFO, log_path="./logs/{}.log".format(os.path.basename(__file__).replace(".py", "")))
     client = pymongo.MongoClient("mongodb://%s:%s@code-analysis.org:%s" % (os.environ.get("MONGOUSER"), os.environ.get("MONGOPASS"), os.environ.get("MONGOPORT")))
     db = client["lib"]
@@ -74,36 +76,41 @@ def main():
     lib_rank_info = db["lib_rank_info"]
     rank_info = lib_rank_info.find().sort([("forks_count", pymongo.DESCENDING), ("stargazers_count", pymongo.DESCENDING), ("updated_at", pymongo.DESCENDING)])
     task = []
-    for lib in rank_info:
-        if "version" not in lib or "version" not in lib:
-            logger.info("Could not find useful information. details: {0}".format(json.dumps(lib)))
-            continue
-        lib_name, lib_version = lib["name"], lib["version"]
-        for lib_details in lib_source_info.find({"name": name}):
-            if "source" not in lib_details:
-                logger.info(lib_name + ":" + lib_version + " does not have a source field.")
+    with ThreadPoolExecutor(max_workers) as threadPool:
+        for lib in rank_info:
+            if "name" not in lib:
+                logger.info("Could not find useful information. details: {0}".format(json.dumps(lib)))
                 continue
-            source = lib_details["source"]
-            future = threadPool.submit(download, lib_name, lib_version, source)
-            task.append(future)
+            lib_name = lib["name"]
+            for lib_details in lib_source_info.find({"name": lib_name}):
+                lib_version = lib_details["version"]
+                if "source" not in lib_details:
+                    logger.info(lib_name + ":" + lib_version + " does not have a source field.")
+                    continue
+                source = lib_details["source"]
+                future = threadPool.submit(download, lib_name, lib_version, source)
+                task.append(future)
 
-    for future in as_completed(task):
-        logger.info(future.result())
-        # limit the space, du -sh is too slow, so we use the df -lh
-        ret = subprocess.Popen("df -lh", shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='gbk')
-        ret.wait()
-        ret = ret.stdout.read()
-        space = re.findall(r"/dev/sda2 *\w*? *\w*? *(\w*?) *[0-9]+%", ret)
-        if len(space) > 0:
-            if int(space[0][:-1]) > 50:
-                continue
-            logger.info("space is less than 50G")
-            for t in task:
-                if not t.done(): t.cancel()
+        for future in as_completed(task):
+            logger.info(future.result())
+            # limit the space, du -sh is too slow, so we use the df -lh
+            ret = subprocess.Popen("df -lh", shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='gbk')
+            ret.wait()
+            ret = ret.stdout.read()
+            space = re.findall(r"/dev/sda2 *\w*? *\w*? *(\w*?) *[0-9]+%", ret)
+            if len(space) > 0:
+                if int(space[0][:-1]) > 50:
+                    continue
+                logger.info("space is less than 50G")
+                for t in task:
+                    if not t.done(): t.cancel()
     logger.info("done!")
     return
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description='The downloader that download by rank for libraries.')
+    parser.add_argument('--max_workers', type=int, default=10, help="the max workers of threadPool.")
+    args = parser.parse_args()
+    main(args.max_workers)
 
