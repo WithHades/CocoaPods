@@ -219,7 +219,12 @@ def parse_source_files(lib_name, lib_version, source_files, global_vals, subspec
         for root, dirs, files in os.walk(global_vals.file_path):
             for file in files:
                 code_file = os.path.join(root, file)
-                if len(re.findall(source_file_re, code_file)) <= 0: continue
+                try:
+                    if len(re.findall(source_file_re, code_file)) <= 0: continue
+                except Exception as e:
+                    print(e)
+                    print(source_file_re)
+                    print(code_file)
                 parse_code_files(lib_name, lib_version, subspecs_name, global_vals, code_file)
 
 
