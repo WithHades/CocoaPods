@@ -13,7 +13,7 @@ import logging
 from clang.cindex import Index, CursorKind, Config
 
 import utils
-from CocoaPods.ALibFileParser import parse
+from ALibFileParser import parse
 
 
 class global_var:
