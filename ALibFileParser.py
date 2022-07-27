@@ -50,7 +50,30 @@ def update(sour, dest):
         dest[key] = list(set(old).union(set(new)))
 
 
-def readString(f, offset=None):
+def readUString(f, offset=None, encoding="UTF-16LE", end=None):
+    now_offset = None
+    if offset is not None:
+        now_offset = f.tell()
+        f.seek(offset)
+    symbol = b"\x01\x01"
+    while symbol[-1] != 0 or symbol[-2] != 0:
+        symbol += f.read(1)
+    if end is not None and f.tell() < end:
+        if f.read(1).hex() == "00":
+            symbol += b"\x00"
+            if offset is not None: f.seek(now_offset)
+            try:
+                return symbol[2:-2].decode(encoding=encoding)
+            except Exception as e:
+                f.seek(-1, 1)
+                return symbol[2:-3].decode(encoding=encoding)
+        else:
+            f.seek(-1, 1)
+    if offset is not None: f.seek(now_offset)
+    return symbol[2:-2].decode(encoding=encoding)
+
+
+def readString(f, offset=None, encoding="utf-8"):
     now_offset = None
     if offset is not None:
         now_offset = f.tell()
@@ -59,7 +82,7 @@ def readString(f, offset=None):
     while symbol[-1] != 0:
         symbol += f.read(1)
     if offset is not None: f.seek(now_offset)
-    return symbol[1:-1].decode("utf-8")
+    return symbol[1:-1].decode(encoding=encoding)
 
 
 def decode(trans_bytes):
@@ -192,7 +215,7 @@ def parse_mach(f):
     elif magic == "feedfacf":
         arch = 64
     else:
-        return {}
+        return {}, []
     var_len = 4 if arch == 32 else 8
     byteorder = "little"
     CPU_type = int.from_bytes(f.read(4), byteorder=byteorder)
@@ -222,10 +245,10 @@ def parse_mach(f):
 
     if "__DATA" not in segments or "__objc_classlist" not in segments["__DATA"]:
         f.seek(offset)
-        return {}
+        return {}, []
     if len(symbols) <= 0:
         f.seek(offset)
-        return {}
+        return {}, []
 
     relo_table = {}
     # handle relocation
@@ -248,15 +271,32 @@ def parse_mach(f):
                 if r_extern == 1:
                     symbol_value = symbols[symbol_index][4]
                     relo_table[offset + re_addr] = symbol_value
-    f.seek(offset + segments["__DATA"]["__objc_classlist"]["offset"])
+
     class_infos = {}
-    for _ in range(int(segments["__DATA"]["__objc_classlist"]["size"] / var_len)):
-        class_item_vm = trans_relo(f, relo_table, var_len, byteorder)
-        class_offset = class_item_vm - segments["__DATA"]["__objc_data"]["addr"] + segments["__DATA"]["__objc_data"]["offset"]
-        class_info = parse_class(f, offset, class_offset, relo_table, var_len, byteorder, segments, methType="-")
-        update(class_info, class_infos)
+    if "__DATA" in segments and "__objc_classlist" in segments["__DATA"]:
+        # handle class and method
+        f.seek(offset + segments["__DATA"]["__objc_classlist"]["offset"])
+        for _ in range(int(segments["__DATA"]["__objc_classlist"]["size"] / var_len)):
+            class_item_vm = trans_relo(f, relo_table, var_len, byteorder)
+            class_offset = class_item_vm - segments["__DATA"]["__objc_data"]["addr"] + segments["__DATA"]["__objc_data"]["offset"]
+            class_info = parse_class(f, offset, class_offset, relo_table, var_len, byteorder, segments, methType="-")
+            update(class_info, class_infos)
+
+    strings = []
+    # handle __cstring
+    if "__TEXT" in segments and "__cstring" in segments["__TEXT"]:
+        f.seek(offset + segments["__TEXT"]["__cstring"]["offset"])
+        while f.tell() < offset + segments["__TEXT"]["__cstring"]["offset"] + segments["__TEXT"]["__cstring"]["size"]:
+            strings.append(readString(f))
+
+    # handle __ustring
+    if "__TEXT" in segments and "__ustring" in segments["__TEXT"]:
+        f.seek(offset + segments["__TEXT"]["__ustring"]["offset"])
+        end = offset + segments["__TEXT"]["__ustring"]["offset"] + segments["__TEXT"]["__ustring"]["size"]
+        while f.tell() < end:
+            strings.append(readUString(f, encoding="UTF-16LE", end=end))
     f.seek(offset)
-    return class_infos
+    return class_infos, strings
 
 
 def parse_arch_symbol_table(f, symbol_table_offset, symbol_table_size):
@@ -303,6 +343,7 @@ def parse_arch(f, offset, size=None):
     string_table_size = int.from_bytes(f.read(4), byteorder="little")
     f.seek(string_table_size, 1)
     class_infos = {}
+    strings = []
     while True:
         # object header
         object_name = f.read(16).decode("utf-8")
@@ -323,17 +364,19 @@ def parse_arch(f, offset, size=None):
         # print("handle " + object_long_name)
         ret = parse_mach(f)
         # print(object_long_name, " class infos: ", json.dumps(ret))
-        class_infos.update(ret)
+        update(ret[0], class_infos)
+        strings = list(set(strings).union(set(ret[1])))
         f.seek(end_header_offset + int(object_size_str))
         if f.tell() >= offset + size:
             break
 
     f.seek(now_offset)
-    return class_infos
+    return class_infos, strings
 
 
 def parse_archs(f, byteorder):
     class_infos = {}
+    strings = []
     arch_num = int.from_bytes(f.read(4), byteorder=byteorder)
     for _ in range(arch_num):
         CPU_type = int.from_bytes(f.read(4), byteorder=byteorder)
@@ -343,9 +386,10 @@ def parse_archs(f, byteorder):
         size = int.from_bytes(f.read(4), byteorder=byteorder)
         f.read(4)  # Align
         # print("handle arch: ", CPU_type, CPU_SubType)
-        class_info = parse_arch(f, offset, size)
+        class_info, strings_ = parse_arch(f, offset, size)
+        strings = list(set(strings).union(set(strings_)))
         update(class_info, class_infos)
-    return class_infos
+    return class_infos, strings
 
 
 def parse(path):
@@ -353,22 +397,22 @@ def parse(path):
         magic = f.read(8).hex()
         if magic == "213c617263683e0a":
             file_size = f.seek(0, 2) - f.seek(0)
-            class_infos = parse_arch(f, 0, file_size)
-            return class_infos
+            class_infos, strings = parse_arch(f, 0, file_size)
+            return class_infos, strings
         f.seek(0)
         magic = f.read(4).hex()
         if magic == "cffaedfe" or magic == "cefaedfe":
             f.seek(0)
-            class_infos = parse_mach(f)
-            return class_infos
+            class_infos, strings = parse_mach(f)
+            return class_infos, strings
         if magic == "cafebabe":
             byteorder = "big"
         elif magic == "bebafeca":
             byteorder = "little"
         else:
-            return {}
-        class_infos = parse_archs(f, byteorder)
-        return class_infos
+            return {}, []
+        class_infos, strings = parse_archs(f, byteorder)
+        return class_infos, strings
 
 
 def extract_o_from_arch(f, offset, size=None, to_path=""):
@@ -478,6 +522,11 @@ def extract_o_from_a(path, to_path):
 
 
 if __name__ == "__main__":
-    for path in extract_o_from_a("./libWeChatSDK.a", "./"):
-        print(path)
+    if False:
+        for path in extract_o_from_a("./libABPicker.a", "./"):
+            print(path)
+    ret = parse("./libWeChatSDK.a")
+    print(ret[0])
+    print(ret[1])
+
 
