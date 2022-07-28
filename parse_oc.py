@@ -266,7 +266,7 @@ def parse_by_simple(lib_name, lib_version, subspecs_name, global_vals, code_file
     try:
         method_signs_dict, strings = parse(code_file)
     except Exception as e:
-        global_vals.logger.error("An error occured in parse_a_file, code_file: %s, error: %s", (code_file, e.args[0]))
+        global_vals.logger.error("An error occured in parse_by_simple, code_file: %s, error: %s", (code_file, e.args[0]))
         return
     method_signs = []
     for key in method_signs_dict:
