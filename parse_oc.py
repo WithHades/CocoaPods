@@ -13,13 +13,13 @@ import logging
 from clang.cindex import Index, CursorKind, Config
 
 import utils
-from ALibFileParser import parse
+from ALibFileParser import parse, extract_o_from_a
 
 
 class global_var:
     file_path = None
 
-    def __init__(self, logger, lib_source_info, feature_string, feature_method, feature_lib, compiler, libclang):
+    def __init__(self, logger, lib_source_info, feature_string, feature_method, feature_lib, compiler, libclang, ida_path):
         self.logger = logger
         self.lib_source_info = lib_source_info
         self.feature_string = feature_string
@@ -27,6 +27,7 @@ class global_var:
         self.feature_lib = feature_lib
         self.compiler = compiler
         self.libclang = libclang
+        self.ida_path = ida_path
 
 
 def parse_file_type(source_files):
@@ -261,6 +262,46 @@ def parse_source_info(lib_name, lib_version, source_info, global_vals, subspecs_
             parse_source_info(lib_name, lib_version, subspec, global_vals, space_name)
 
 
+def parse_by_simple(lib_name, lib_version, subspecs_name, global_vals, code_file):
+    try:
+        method_signs_dict, strings = parse(code_file)
+    except Exception as e:
+        global_vals.logger.error("An error occured in parse_a_file, code_file: %s, error: %s", (code_file, e.args[0]))
+        return
+    method_signs = []
+    for key in method_signs_dict:
+        method_signs = list(set(method_signs).union(set(method_signs_dict[key])))
+    update_library_lib(lib_name, lib_version, subspecs_name, method_signs, strings, global_vals)
+    update_library_mtd(lib_name, lib_version, subspecs_name, method_signs, global_vals)
+    update_library_str(lib_name, lib_version, subspecs_name, strings, global_vals)
+
+
+def parse_by_ida(lib_name, lib_version, subspecs_name, global_vals, code_file):
+    tmp_path = "./tmp"
+    if not os.path.exists(tmp_path):
+        os.mkdir(tmp_path)
+
+    for path in extract_o_from_a(code_file, tmp_path):
+        cmd = global_vals.ida_path + ' -A -S"./ida_script.py result.txt" ' + path
+        try:
+            p = subprocess.Popen(cmd)
+            p.wait()
+        except Exception as e:
+            global_vals.logger.error("An error occured in parse_by_ida, 0x1cmd is %s, code_file is %s" % (cmd, code_file))
+            continue
+        if not os.path.exists("result.txt"):
+            global_vals.logger.error("An error occured in parse_by_ida, 0x2cmd is %s, code_file is %s" % (cmd, code_file))
+            continue
+        with open("result.txt", "w") as f:
+            data = json.load(f)
+        os.remove("result.txt")
+        strings = list(set(data[0]))
+        method_signs = data[1]
+        update_library_lib(lib_name, lib_version, subspecs_name, method_signs, strings, global_vals)
+        update_library_mtd(lib_name, lib_version, subspecs_name, method_signs, global_vals)
+        update_library_str(lib_name, lib_version, subspecs_name, strings, global_vals)
+
+
 def parse_a_file(lib_name, lib_version, vendored_libraries, global_vals, subspecs_name=None):
     if isinstance(vendored_libraries, str):
         vendored_libraries = [vendored_libraries]
@@ -278,17 +319,10 @@ def parse_a_file(lib_name, lib_version, vendored_libraries, global_vals, subspec
                     global_vals.logger.error("reg is error! source_file_re: %s, code_file: %s" % (vendored_library_re, code_file))
                     continue
                 if not code_file.endswith(".a"): continue
-                try:
-                    method_signs_dict, strings = parse(code_file)
-                except Exception as e:
-                    global_vals.logger.error("An error occured in parse_a_file, code_file: %s, error: %s", (code_file, e.args[0]))
-                    continue
-                method_signs = []
-                for key in method_signs_dict:
-                    method_signs = list(set(method_signs).union(set(method_signs_dict[key])))
-                update_library_lib(lib_name, lib_version, subspecs_name, method_signs, strings, global_vals)
-                update_library_mtd(lib_name, lib_version, subspecs_name, method_signs, global_vals)
-                update_library_str(lib_name, lib_version, subspecs_name, strings, global_vals)
+                if global_vals.ida_path is not None:
+                    parse_by_ida(lib_name, lib_version, subspecs_name, global_vals, code_file)
+                else:
+                    parse_by_simple(lib_name, lib_version, subspecs_name, global_vals, code_file)
 
 
 def parse_libraries(lib_name, lib_version, source_info, global_vals, subspecs_name=None):
@@ -347,7 +381,7 @@ def parse_frameworks(lib_name, lib_version, source_info, global_vals, subspecs_n
             parse_frameworks(lib_name, lib_version, subspec, global_vals, space_name)
 
 
-def main(compiler, drop, libclang):
+def main(compiler, libclang, ida_path, drop):
 
     lib_path = "../libraries"
     if not os.path.exists(lib_path):
@@ -361,7 +395,7 @@ def main(compiler, drop, libclang):
         feature_method.drop()
         feature_lib.drop()
 
-    global_vals = global_var(logger, lib_source_info, feature_string, feature_method, feature_lib, compiler, libclang)
+    global_vals = global_var(logger, lib_source_info, feature_string, feature_method, feature_lib, compiler, libclang, ida_path)
 
     os.chdir(lib_path)
     cwd_path = os.getcwd()
@@ -378,12 +412,14 @@ def main(compiler, drop, libclang):
             continue
         parse_source_info(lib_name, lib_version, ret, global_vals)
         parse_libraries(lib_name, lib_version, ret, global_vals)
+        parse_framework(lib_name, lib_version, ret, global_vals)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='The parser for libraries.')
-    parser.add_argument('--compiler', default="clang", help="the path of clang compiler.")
+    parser.add_argument('--compiler', default="clang", help="the path of clang compiler. Help to parse the c/oc files.")
+    parser.add_argument('--libclang', help="the path of libclang.so. Help to parse the c/oc files.")
+    parser.add_argument('--ida_path', help="the path of ida64. Help to parse the binaries files.")
     parser.add_argument('--drop', default=False, action='store_true', help="Does drop the clooections of feature_method, feature_string and feature_lib.")
-    parser.add_argument('--libclang', help="the path of libclang.so.")
     args = parser.parse_args()
-    main(args.compiler, args.drop, args.libclang)
+    main(args.compiler,  args.libclang, args.ida_path, args.drop)

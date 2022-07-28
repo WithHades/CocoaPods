@@ -1,8 +1,0 @@
-#!/user/bin/expect
-set timeout 600
-set name [lindex $argv 0]
-spawn ruby  $name
-expect "sername";
-send "\r";
-expect "assword";
-send "\r";
