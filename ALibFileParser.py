@@ -51,7 +51,7 @@ def update(sour, dest):
         dest[key] = list(set(old).union(set(new)))
 
 
-def readUString(f, offset=None, encoding="UTF-16LE", end=None):
+def readUString(f, offset=None, encoding="UTF-16LE"):
     now_offset = None
     if offset is not None:
         now_offset = f.tell()
@@ -72,7 +72,11 @@ def readString(f, offset=None, encoding="utf-8"):
     while symbol[-1] != 0:
         symbol += f.read(1)
     if offset is not None: f.seek(now_offset)
-    return symbol[1:-1].decode(encoding=encoding)
+    try:
+        symbol = symbol[1:-1].decode(encoding=encoding)
+    except:
+        symbol = ""
+    return symbol
 
 
 def decode(trans_bytes):
@@ -99,15 +103,17 @@ def parse_class(f, lib_offset, class_offset, relo_table, var_len, byteorder, seg
     # print(methType, 1, hex(lib_offset + class_offset), hex(class_offset))
     isa_vm = trans_relo(f, relo_table, var_len, byteorder)
     if isa_vm != 0:
-        class_offset = isa_vm - segments["__DATA"]["__objc_data"]["addr"] + segments["__DATA"]["__objc_data"]["offset"]
-        class_info = parse_class(f, lib_offset, class_offset, relo_table, var_len, byteorder, segments, file_type, methType="+")
+        class_offset_ = isa_vm - segments["__DATA"]["__objc_data"]["addr"] + segments["__DATA"]["__objc_data"]["offset"]
+        if class_offset_ == class_offset:
+            return {}
+        class_info = parse_class(f, lib_offset, class_offset_, relo_table, var_len, byteorder, segments, file_type, methType="+")
         update(class_info, class_infos)
     f.read(var_len * 3)  # skip superclass/cache/vtable
     # class data
     # const_offset_vm should be 0x2C9B
     const_offset_vm = trans_relo(f, relo_table, var_len, byteorder)
-    if file_type == "DYLIB" and const_offset_vm % 8 != 0:
-        const_offset_vm = math.floor(const_offset_vm / 8) * 8
+    if const_offset_vm % var_len != 0:
+        const_offset_vm = math.floor(const_offset_vm / var_len) * var_len
     const_offset = const_offset_vm - segments["__DATA"]["__objc_const"]["addr"] + segments["__DATA"]["__objc_const"]["offset"]
     # parse class info
     f.seek(lib_offset + const_offset)
@@ -272,32 +278,47 @@ def parse_mach(f):
                     symbol_value = symbols[symbol_index][4]
                     relo_table[offset + re_addr] = symbol_value
 
-    class_infos = {}
 
-    if "__DATA" in segments and "__objc_classlist" in segments["__DATA"]:
-        # handle class and method
-        f.seek(offset + segments["__DATA"]["__objc_classlist"]["offset"])
-        for _ in range(int(segments["__DATA"]["__objc_classlist"]["size"] / var_len)):
-            class_item_vm = trans_relo(f, relo_table, var_len, byteorder)
-            class_offset = class_item_vm - segments["__DATA"]["__objc_data"]["addr"] + segments["__DATA"]["__objc_data"]["offset"]
-            class_info = parse_class(f, offset, class_offset, relo_table, var_len, byteorder, segments, file_type, methType="-")
-            update(class_info, class_infos)
+    def readClassInfosFromSection(f, offset, relo_table, byteorder, var_len, section_name, file_type, segments, class_infos):
+        if "__DATA" in segments and section_name in segments["__DATA"]:
+            # handle class and method
+            f.seek(offset + segments["__DATA"][section_name]["offset"])
+            class_num = int(segments["__DATA"][section_name]["size"] / var_len)
+            for _ in range(class_num):
+                class_item_vm = trans_relo(f, relo_table, var_len, byteorder)
+                class_offset = class_item_vm - segments["__DATA"]["__objc_data"]["addr"] + segments["__DATA"]["__objc_data"]["offset"]
+                class_info = parse_class(f, offset, class_offset, relo_table, var_len, byteorder, segments, file_type, methType="-")
+                update(class_info, class_infos)
+
+
+
+    class_infos = {}
+    # handle __objc_classlist
+    readClassInfosFromSection(f, offset, relo_table, byteorder, var_len, "__objc_classlist", file_type, segments, class_infos)
+    # handle __objc_nlclslist
+    readClassInfosFromSection(f, offset, relo_table, byteorder, var_len, "__objc_nlclslist", file_type, segments, class_infos)
+
+    def readStringFromSection(f, offset, section_name, segments, strings):
+        if "__TEXT" in segments and section_name in segments["__TEXT"]:
+            f.seek(offset + segments["__TEXT"][section_name]["offset"])
+            while f.tell() < offset + segments["__TEXT"][section_name]["offset"] + segments["__TEXT"][section_name]["size"]:
+                strings.append(readString(f))
 
     strings = []
     # handle __cstring
-    if "__TEXT" in segments and "__cstring" in segments["__TEXT"]:
-        f.seek(offset + segments["__TEXT"]["__cstring"]["offset"])
-        while f.tell() < offset + segments["__TEXT"]["__cstring"]["offset"] + segments["__TEXT"]["__cstring"]["size"]:
-            strings.append(readString(f))
+    readStringFromSection(f, offset, "__cstring", segments, strings)
 
     # handle __ustring
     if "__TEXT" in segments and "__ustring" in segments["__TEXT"]:
         f.seek(offset + segments["__TEXT"]["__ustring"]["offset"])
-        end = offset + segments["__TEXT"]["__ustring"]["offset"] + segments["__TEXT"]["__ustring"]["size"]
-        while f.tell() < end:
-            strings.append(readUString(f, encoding="UTF-16LE", end=end))
+        while f.tell() < offset + segments["__TEXT"]["__ustring"]["offset"] + segments["__TEXT"]["__ustring"]["size"]:
+            strings.append(readUString(f, encoding="UTF-16LE"))
+
+    # handle __swift5_reflstr
+    readStringFromSection(f, offset, "__swift5_reflstr", segments, strings)
+
     f.seek(offset)
-    return class_infos, strings
+    return class_infos, list(set(strings))
 
 
 def parse_arch_symbol_table(f, symbol_table_offset, symbol_table_size):
@@ -362,7 +383,7 @@ def parse_arch(f, offset, size=None):
         end_header_offset = f.tell()
         object_long_name_len = int(object_name.strip()[3:])
         object_long_name = decode(f.read(object_long_name_len))
-        print("handle " + object_long_name)
+        # print("handle " + object_long_name)
         ret = parse_mach(f)
         # print(object_long_name, " class infos: ", json.dumps(ret))
         update(ret[0], class_infos)
@@ -523,18 +544,38 @@ def extract_o_from_a(path, to_path):
             yield o_path
 
 
-if __name__ == "__main__":
-    if False:
-        for path in extract_o_from_a("./libABPicker.a", "./"):
-            print(path)
-    # from macholibre import parse as parse_
+def __test_extract__():
+    for path in extract_o_from_a("./libABPicker.a", "./"):
+        print(path)
 
+
+def __test_parse__():
     # mach-o file path
     # path = r"D:\workplace\python\angr\viewer-sdk-ios-5b80ecde8420cad132c1863b3ccb1d5206acf1ae\AntourageWidget.xcframework\ios-arm64\AntourageWidget.framework\AntourageWidget"
-    path = r"libWeChatSDK.a"
-    # return dict
-    ret = parse(path)
-    print(ret[0])
-    print(ret[1])
+    paths = [r"../core/Payload/AOMMBank.app/AOMMBank",
+             r"../core/Payload/AppStore.app/AppStore",
+             r"../core/Payload/AssetTrust.app/AssetTrust",
+             r"../core/Payload/cgbapp.app/cgbapp",
+             r"../core/Payload/CGBMBank.app/CGBMBank",
+             r"./libWeChatSDK.a",
+             r"./jpush-ios-4.6.6.a",
+             r"./jcore-ios-3.2.3.a",
+             r"../viewer-sdk-ios-5b80ecde8420cad132c1863b3ccb1d5206acf1ae\AntourageWidget.xcframework\ios-arm64\AntourageWidget.framework\AntourageWidget"]
+    for path in paths:
+        print(path)
+        # return dict
+        ret = parse(path)
+        print(ret[0])
+        print(ret[1])
+
+
+if __name__ == "__main__":
+    # path = r"../core/Payload/cgbapp.app/cgbapp"
+    # ret = parse(path)
+    # print(ret[0])
+    # print(ret[1])
+    # from macholibre import parse as parse_
+    __test_parse__()
+
 
 
