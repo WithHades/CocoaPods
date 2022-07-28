@@ -401,6 +401,7 @@ def main(compiler, libclang, ida_path, drop):
     cwd_path = os.getcwd()
     for path in os.listdir(cwd_path):
         file_path = os.path.join(cwd_path, path)
+        logger.info("now processing {}".format(file_path))
         global_vals.file_path = file_path
         if os.path.isfile(file_path) or not os.listdir(file_path):
             continue
@@ -408,7 +409,7 @@ def main(compiler, libclang, ida_path, drop):
         lib_version = path[path.rfind("_") + 1:]
         ret = lib_source_info.find_one({"name": lib_name, "version": lib_version})
         if not ret:
-            logger.error("ERROR: Could not find library in database! file_path: %s" % file_path)
+            logger.error("Could not find library in database! file_path: %s" % file_path)
             continue
         parse_source_info(lib_name, lib_version, ret, global_vals)
         parse_libraries(lib_name, lib_version, ret, global_vals)
