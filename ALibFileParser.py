@@ -58,18 +58,7 @@ def readUString(f, offset=None, encoding="UTF-16LE", end=None):
         f.seek(offset)
     symbol = b"\x01\x01"
     while symbol[-1] != 0 or symbol[-2] != 0:
-        symbol += f.read(1)
-    if end is not None and f.tell() < end:
-        if f.read(1).hex() == "00":
-            symbol += b"\x00"
-            if offset is not None: f.seek(now_offset)
-            try:
-                return symbol[2:-2].decode(encoding=encoding)
-            except Exception as e:
-                f.seek(-1, 1)
-                return symbol[2:-3].decode(encoding=encoding)
-        else:
-            f.seek(-1, 1)
+        symbol += f.read(2)
     if offset is not None: f.seek(now_offset)
     return symbol[2:-2].decode(encoding=encoding)
 
@@ -373,7 +362,7 @@ def parse_arch(f, offset, size=None):
         end_header_offset = f.tell()
         object_long_name_len = int(object_name.strip()[3:])
         object_long_name = decode(f.read(object_long_name_len))
-        # print("handle " + object_long_name)
+        print("handle " + object_long_name)
         ret = parse_mach(f)
         # print(object_long_name, " class infos: ", json.dumps(ret))
         update(ret[0], class_infos)
@@ -517,7 +506,8 @@ def extract_o_from_a(path, to_path):
         magic = f.read(8).hex()
         if magic == "213c617263683e0a":
             file_size = f.seek(0, 2) - f.seek(0)
-            extract_o_from_arch(f, 0, file_size, to_path)
+            for o_path in extract_o_from_arch(f, 0, file_size, to_path):
+                yield o_path
             return
         f.seek(0)
         magic = f.read(4).hex()
@@ -529,8 +519,8 @@ def extract_o_from_a(path, to_path):
             byteorder = "little"
         else:
             return ""
-        for path in extract_o_from_archs(f, byteorder, to_path):
-            yield path
+        for o_path in extract_o_from_archs(f, byteorder, to_path):
+            yield o_path
 
 
 if __name__ == "__main__":
@@ -540,8 +530,8 @@ if __name__ == "__main__":
     # from macholibre import parse as parse_
 
     # mach-o file path
-    path = r"D:\workplace\python\angr\viewer-sdk-ios-5b80ecde8420cad132c1863b3ccb1d5206acf1ae\AntourageWidget.xcframework\ios-arm64\AntourageWidget.framework\AntourageWidget"
-
+    # path = r"D:\workplace\python\angr\viewer-sdk-ios-5b80ecde8420cad132c1863b3ccb1d5206acf1ae\AntourageWidget.xcframework\ios-arm64\AntourageWidget.framework\AntourageWidget"
+    path = r"libWeChatSDK.a"
     # return dict
     ret = parse(path)
     print(ret[0])
