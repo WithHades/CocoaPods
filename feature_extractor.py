@@ -166,8 +166,8 @@ class feature_extract(logger_):
         :param subspecs_name:
         :return:
         """
-        self._logger.debug("method signs: " + json.dumps(self._method_signs))
-        self._logger.debug("strings: " + json.dumps(self._strings))
+        self._logger.debug("method signs: " + json.dumps(list(self._method_signs)))
+        self._logger.debug("strings: " + json.dumps(list(self._strings)))
         self._mongo.set_lib(self._lib_name, self._lib_version, subspecs_name)
         self._mongo.update_all(self._method_signs, self._strings)
         self._method_signs, self._strings = set(), set()
