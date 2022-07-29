@@ -1,7 +1,7 @@
 import math
 import os.path
 
-from base_logger import logger_
+from .base_logger import logger_
 
 ERROR_CODE = -1
 CPU_TYPES = {-1: "CPU_TYPE_ANY",

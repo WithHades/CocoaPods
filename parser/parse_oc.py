@@ -6,7 +6,7 @@ import subprocess
 import chardet
 from clang.cindex import Index, CursorKind, Config
 
-from base_logger import logger_
+from .base_logger import logger_
 
 
 def decode_oct_str(string: str) -> str:

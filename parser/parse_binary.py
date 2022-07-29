@@ -3,8 +3,8 @@ import os
 import shutil
 import subprocess
 
-from tiny_parser import libParser
-from base_logger import logger_
+from .tiny_parser import libParser
+from .base_logger import logger_
 
 
 class binaries(logger_):
