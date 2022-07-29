@@ -81,6 +81,7 @@ class feature_extract(logger_):
             source_files = [source_files]
         for source_file in source_files:
             source_file_re = self.get_regex(source_file)
+            self._logger.debug("source_file_re: %s, source_file: %s, file_path: %s" % (source_file_re, source_file, self._file_path))
             for root, dirs, files in os.walk(self._file_path):
                 for file in files:
                     code_file = os.path.join(root, file)
