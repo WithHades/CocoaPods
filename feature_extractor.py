@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import re
 
@@ -165,6 +166,8 @@ class feature_extract(logger_):
         :param subspecs_name:
         :return:
         """
+        self._logger.debug("method signs: " + json.dumps(self._method_signs))
+        self._logger.debug("strings: " + json.dumps(self._strings))
         self._mongo.set_lib(self._lib_name, self._lib_version, subspecs_name)
         self._mongo.update_all(self._method_signs, self._strings)
         self._method_signs, self._strings = set(), set()
@@ -179,10 +182,13 @@ class feature_extract(logger_):
         """
         if "source_files" in source_info:
             self.parse_code_files(source_info["source_files"])
+            self._logger.debug("parse_code_files")
         if "vendored_frameworks" in source_info:
             self.parse_framework(source_info["vendored_frameworks"])
+            self._logger.debug("vendored_frameworks")
         if "vendored_libraries" in source_info:
             self.parse_libraries(source_info["vendored_libraries"])
+            self._logger.debug("vendored_libraries")
 
         self.update_to_mongodb(subspecs_name)
 
@@ -195,12 +201,12 @@ class feature_extract(logger_):
                 self.parse_source_info(source_info[key], subspecs_name)
 
 
-def main(compiler, libclang, ida_path, drop):
+def main(compiler, libclang, ida_path, drop, loglevel):
     lib_path = "../libraries"
     if not os.path.exists(lib_path):
         return
 
-    logger = utils.config_log(name=__name__, level=logging.INFO, log_path="./logs/{}.log".format(os.path.basename(__file__).replace(".py", "")))
+    logger = utils.config_log(name=__name__, level=loglevel, log_path="./logs/{}.log".format(os.path.basename(__file__).replace(".py", "")))
 
     mongo = mongodb()
     if drop:
@@ -226,11 +232,10 @@ def main(compiler, libclang, ida_path, drop):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='The parser for libraries.')
-    parser.add_argument('--compiler', default="clang",
-                        help="the path of clang compiler. Help to parser the c/oc files.")
+    parser.add_argument('--compiler', default="clang", help="the path of clang compiler. Help to parser the c/oc files.")
     parser.add_argument('--libclang', help="the path of libclang.so. Help to parser the c/oc files.")
     parser.add_argument('--ida_path', help="the path of ida64. Help to parser the binaries files.")
-    parser.add_argument('--drop', default=False, action='store_true',
-                        help="Does drop the clooections of feature_method, feature_string and feature_lib.")
+    parser.add_argument('--drop', default=False, action='store_true', help="Does drop the clooections of feature_method, feature_string and feature_lib.")
+    parser.add_argument('--loglevel', default='INFO')
     args = parser.parse_args()
-    main(args.compiler, args.libclang, args.ida_path, args.drop)
+    main(args.compiler, args.libclang, args.ida_path, args.drop, args.loglevel)
