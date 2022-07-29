@@ -75,7 +75,7 @@ def main(max_workers):
     lib_source_info = db["lib_source_info"]
     lib_rank_info = db["lib_rank_info"]
     rank_info = lib_rank_info.find().sort([("forks_count", pymongo.DESCENDING), ("stargazers_count", pymongo.DESCENDING), ("updated_at", pymongo.DESCENDING)])
-
+    task = []
     count = 0
     disk_flag = False
     with ThreadPoolExecutor(max_workers) as threadPool:
@@ -94,6 +94,7 @@ def main(max_workers):
                 task.append(future)
 
                 count += 1
+                logger.info("submit: %d, %s: %s: %s" % (count, lib_name, lib_version, source))
 
                 if count < 50:
                     continue
@@ -115,7 +116,7 @@ def main(max_workers):
                 space = re.findall(r"/dev/sda2 *\w*? *\w*? *(\w*?) *[0-9]+%", ret)
                 if len(space) > 0:
                     if int(space[0][:-1]) > 50:
-                        print(int(space[0][:-1]))
+                        logger.info("check space: %s" % space[0][:-1])
                         continue
                     logger.info("space is less than 50G")
                     disk_flag = True
@@ -144,7 +145,7 @@ def main(max_workers):
             space = re.findall(r"/dev/sda2 *\w*? *\w*? *(\w*?) *[0-9]+%", ret)
             if len(space) > 0:
                 if int(space[0][:-1]) > 50:
-                    print(int(space[0][:-1]))
+                    logger.info("check space: %s" % space[0][:-1])
                     continue
                 logger.info("space is less than 50G")
                 break
