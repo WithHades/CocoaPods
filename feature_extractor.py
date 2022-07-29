@@ -46,6 +46,8 @@ class feature_extract(logger_):
 
     @staticmethod
     def get_regex(source):
+        if "**" in source:
+            source = source[:source.find("**")] + "**" + source[source.find("**") + 2:].replace("/", "/?")
         regex = source.replace("*", "_").replace(".", r"\.").replace("__", r".*?").replace("_", r".*?")
         regex = regex.replace("{", r"[").replace("}", r"]")
         regex = regex.replace(",", "").replace(" ", "")
@@ -85,7 +87,6 @@ class feature_extract(logger_):
             for root, dirs, files in os.walk(self._file_path):
                 for file in files:
                     code_file = os.path.join(root, file)
-                    self._logger.debug("reg is error! source_file_re: %s, code_file: %s" % (source_file_re, code_file))
                     try:
                         if len(re.findall(source_file_re, code_file)) <= 0:
                             continue
