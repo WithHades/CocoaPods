@@ -5,8 +5,7 @@ import os
 import re
 import shutil
 import subprocess
-from asyncio import as_completed
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pymongo
 
