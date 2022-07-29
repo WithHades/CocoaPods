@@ -42,10 +42,10 @@ def download(lib_name, lib_version, source):
                     # {'headers': ['Authorization: Bearer QQ==']}
                     options += "," + key + " => '" + str(source[key][0]).lower() + "'" + ","
             else:
-                return lib_name + ":" + lib_version + " parse source file error! undefined source key type!"
+                return lib_name + ":" + lib_version + " parser source file error! undefined source key type!"
         options = options[:-1] + "}"
         if len(options) <= 5:
-            return lib_name + ":" + lib_version + " parse source file error!\n" + json.dumps(source)
+            return lib_name + ":" + lib_version + " parser source file error!\n" + json.dumps(source)
         f.write("options = {}\n".format(options))
         f.write("options = Pod::Downloader.preprocess_options(options)\n")
         f.write("downloader = Pod::Downloader.for_target(target_path, options)\n")
