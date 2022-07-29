@@ -190,9 +190,9 @@ class feature_extract(logger_):
         if "subspecs" in source_info:
             for subspec in source_info["subspecs"]:
                 space_name = subspec["name"] if "name" in subspec else "unknown"
-                self.parse_source_info(space_name)
+                self.parse_source_info(subspec, space_name)
         for key in source_info:
-            if isinstance(source_info, dict):
+            if isinstance(source_info[key], dict):
                 self.parse_source_info(source_info[key], subspecs_name)
 
 
