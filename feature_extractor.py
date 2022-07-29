@@ -64,7 +64,6 @@ class feature_extract(logger_):
             else:
                 parser = clang(code_file, self._compiler, self._logger)
             method_signs, strings = parser.parse().get_result()
-
         self._method_signs = self._method_signs.union(method_signs)
         self._strings = self._strings.union(strings)
 
@@ -220,7 +219,7 @@ def main(compiler, libclang, ida_path, drop):
         if not ret:
             logger.error("Could not find library in database! file_path: %s" % file_path)
             continue
-        logger.info("processing library: %s, version: %s" % (lib_name, lib_version))
+        logger.debug("processing library: %s, version: %s" % (lib_name, lib_version))
         fe = feature_extract(lib_name=lib_name, lib_version=lib_version, file_path=file_path, mongo=mongo, ida_path=ida_path, compiler=compiler, libclang=libclang, logger=logger)
         fe.parse_source_info(ret)
 
