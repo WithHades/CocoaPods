@@ -61,6 +61,7 @@ class feature_extract(logger_):
         # parse the c/c++/objective-c files
         if code_file.endswith(".h") or code_file.endswith(".m") or code_file.endswith(".c"):
             if self._libclang is not None:
+                self._logger.debug("using libclang to parse code file, code_file: %s" % code_file)
                 parser = libclang(code_file, self._libclang, self._logger)
             else:
                 parser = clang(code_file, self._compiler, self._logger)
@@ -83,6 +84,7 @@ class feature_extract(logger_):
             for root, dirs, files in os.walk(self._file_path):
                 for file in files:
                     code_file = os.path.join(root, file)
+                    self._logger.debug("reg is error! source_file_re: %s, code_file: %s" % (source_file_re, code_file))
                     try:
                         if len(re.findall(source_file_re, code_file)) <= 0:
                             continue
@@ -166,8 +168,6 @@ class feature_extract(logger_):
         :param subspecs_name:
         :return:
         """
-        self._logger.debug("method signs: " + json.dumps(list(self._method_signs)))
-        self._logger.debug("strings: " + json.dumps(list(self._strings)))
         self._mongo.set_lib(self._lib_name, self._lib_version, subspecs_name)
         self._mongo.update_all(self._method_signs, self._strings)
         self._method_signs, self._strings = set(), set()
