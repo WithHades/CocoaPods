@@ -76,6 +76,8 @@ def main(max_workers):
     lib_rank_info = db["lib_rank_info"]
     rank_info = lib_rank_info.find().sort([("forks_count", pymongo.DESCENDING), ("stargazers_count", pymongo.DESCENDING), ("updated_at", pymongo.DESCENDING)])
     task = []
+    count = 0
+    disk_flag = False
     with ThreadPoolExecutor(max_workers) as threadPool:
         for lib in rank_info:
             if "lib_name" not in lib:
@@ -91,19 +93,34 @@ def main(max_workers):
                 future = threadPool.submit(download, lib_name, lib_version, source)
                 task.append(future)
 
-        for future in as_completed(task):
-            logger.info(future.result())
-            # limit the space, du -sh is too slow, so we use the df -lh
-            ret = subprocess.Popen("df -lh", shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='gbk')
-            ret.wait()
-            ret = ret.stdout.read()
-            space = re.findall(r"/dev/sda2 *\w*? *\w*? *(\w*?) *[0-9]+%", ret)
-            if len(space) > 0:
-                if int(space[0][:-1]) > 50:
+                count += 1
+                if count < 50:
                     continue
-                logger.info("space is less than 50G")
-                for t in task:
-                    if not t.done(): t.cancel()
+                count = 0
+
+                # If throw all rank info into the thread pool at one time,
+                # the throwing process is slow,
+                # resulting in inability to enter subsequent thread,
+                # which will cause the hard disk to be full.
+                for future in as_completed(task):
+                    logger.info(future.result())
+
+                # when the task is completed, check the status of the disk.
+                # limit the space, du -sh is too slow, so we use the df -lh
+                ret = subprocess.Popen("df -lh", shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='gbk')
+                ret.wait()
+                ret = ret.stdout.read()
+                space = re.findall(r"/dev/sda2 *\w*? *\w*? *(\w*?) *[0-9]+%", ret)
+                if len(space) > 0:
+                    if int(space[0][:-1]) > 50:
+                        continue
+                    logger.info("space is less than 50G")
+                    for t in task:
+                        if not t.done(): t.cancel()
+                    disk_flag = True
+                    break
+            if disk_flag:
+                break
     logger.info("done!")
     return
 
