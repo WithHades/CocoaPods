@@ -6,6 +6,8 @@ import subprocess
 import chardet
 from clang.cindex import Index, CursorKind, Config
 
+from base_logger import logger_
+
 
 def decode_oct_str(string: str) -> str:
     """
@@ -30,16 +32,16 @@ def decode_oct_str(string: str) -> str:
     return string
 
 
-class clang:
+class clang(logger_):
 
     def __init__(self, code_file: str, compiler: str = "clang", logger=None):
         """
         :param code_file: source code file that wants to be parsed.
         :param logger: logger instance.
         """
+        super().__init__(logger)
         self._code_file = code_file
         self._compiler = compiler
-        self._logger = logger
 
         self._method_signs = set()
         self._strings = set()
@@ -84,7 +86,7 @@ class clang:
                     break
 
 
-    def parse_by_clang(self):
+    def parse(self):
         """
         parser c/c++/objective-c code by clang.
         """
@@ -129,7 +131,7 @@ class clang:
         return self._method_signs, self._strings
 
 
-class libclang:
+class libclang(logger_):
 
     def __init__(self, code_file: str, libclang: str, logger=None):
         """
@@ -137,8 +139,8 @@ class libclang:
         :param libclang: the file path to the libclang.
         :param logger: logger instance.
         """
+        super().__init__(logger)
         self._code_file = code_file
-        self._logger = logger
         Config.set_library_file(libclang)
 
         self._method_signs = set()
@@ -174,7 +176,7 @@ class libclang:
             self._traverse_libclang_ast(cur)
 
 
-    def parse_by_libclang(self):
+    def parse(self):
         """
         parser c/c++/objective-c code by libclang & pyclang.
         :return: (method_signs, strings)

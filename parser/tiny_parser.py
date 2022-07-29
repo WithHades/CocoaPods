@@ -1,6 +1,7 @@
 import math
 import os.path
 
+from base_logger import logger_
 
 ERROR_CODE = -1
 CPU_TYPES = {-1: "CPU_TYPE_ANY",
@@ -41,17 +42,10 @@ class LCName:
     LC_SYMTAB = 0x2
 
 
-class baseParser:
+class baseParser(logger_):
     def __init__(self, f=None, logger=None):
+        super().__init__(logger)
         self._f = f
-        self._logger = logger
-        if self._logger is None:
-            import logging
-            self._logger = logging.getLogger("parse library")
-            self._logger.setLevel(level=logging.INFO)
-            self.console = logging.StreamHandler()
-            self.console.setLevel(level=logging.INFO)
-            self._logger.addHandler(self.console)
 
     def _read_string(self, offset: int = None) -> str:
         """
@@ -416,6 +410,8 @@ class libParser(baseParser):
         self._target_paths = []
         self._byteorder = "little"
 
+        self._f = None
+
 
     @staticmethod
     def _update(sour: dict, dest: dict) -> None:
@@ -442,8 +438,8 @@ class libParser(baseParser):
         :return:
         """
         for _ in range(int(symbol_table_size / 8)):
-            symbol_offset = int.from_bytes(self.f.read(4), byteorder="little")
-            _ = self.f.read(4)
+            symbol_offset = int.from_bytes(self._f.read(4), byteorder="little")
+            _ = self._f.read(4)
             symbol = self._read_string(symbol_table_offset + symbol_table_size + 4 + symbol_offset)
             self._symbols.append(symbol)
 
@@ -458,12 +454,12 @@ class libParser(baseParser):
         :return: None
         """
         # record now position and goto arch_offset.
-        now_offset = self.f.tell()
+        now_offset = self._f.tell()
 
-        self.f.seek(arch_offset)
-        self.f.read(8)  # signature
+        self._f.seek(arch_offset)
+        self._f.read(8)  # signature
         # symtab header
-        symtab_name = self._read_string_from_bytes(self.f.read(16))
+        symtab_name = self._read_string_from_bytes(self._f.read(16))
         '''
         symtab_timestamp = self.f.read(12).decode("utf-8")
         symtab_user_id = self.f.read(6).decode("utf-8")
@@ -471,57 +467,57 @@ class libParser(baseParser):
         symtab_mode_str = self.f.read(8).decode("utf-8")
         symtab_size_str = self.f.read(8).decode("utf-8")
         '''
-        self.f.read(12 + 6 + 6 + 8 + 8)
+        self._f.read(12 + 6 + 6 + 8 + 8)
 
-        while self.f.read(2).hex() != "600a":
+        while self._f.read(2).hex() != "600a":
             pass
         symtab_long_name_len = int(symtab_name.strip()[3:])
-        symtab_long_name = self._read_string_from_bytes(self.f.read(symtab_long_name_len))
+        symtab_long_name = self._read_string_from_bytes(self._f.read(symtab_long_name_len))
 
         # symbol table
-        symbol_table_size = int.from_bytes(self.f.read(4), byteorder="little")
+        symbol_table_size = int.from_bytes(self._f.read(4), byteorder="little")
 
         # symbols = parse_arch_symbol_table(f, self.f.tell(), symbol_table_size)
-        self.f.seek(symbol_table_size, 1)
+        self._f.seek(symbol_table_size, 1)
 
         # string table
-        string_table_size = int.from_bytes(self.f.read(4), byteorder="little")
-        self.f.seek(string_table_size, 1)
+        string_table_size = int.from_bytes(self._f.read(4), byteorder="little")
+        self._f.seek(string_table_size, 1)
 
         # parse the all macho files
         while True:
             # object header
-            object_name = self._read_string_from_bytes(self.f.read(16))
+            object_name = self._read_string_from_bytes(self._f.read(16))
             '''
             object_timestamp = self.f.read(12).decode("utf-8")
             object_user_id = self.f.read(6).decode("utf-8")
             object_group_id = self.f.read(6).decode("utf-8")
             object_mode_str = self.f.read(8).decode("utf-8")
             '''
-            self.f.read(12 + 6 + 6 + 8)
+            self._f.read(12 + 6 + 6 + 8)
 
-            object_size_str = self._read_string_from_bytes(self.f.read(8))
-            while self.f.read(2).hex() != "600a":
+            object_size_str = self._read_string_from_bytes(self._f.read(8))
+            while self._f.read(2).hex() != "600a":
                 pass
-            end_header_offset = self.f.tell()
+            end_header_offset = self._f.tell()
             object_long_name_len = int(object_name.strip()[3:])
-            object_long_name = self._read_string_from_bytes(self.f.read(object_long_name_len))
+            object_long_name = self._read_string_from_bytes(self._f.read(object_long_name_len))
             print("handle " + object_long_name)
 
             if sub_extract_path is not None:
                 target_path = os.path.join(sub_extract_path, object_long_name)
                 with open(target_path, "wb") as f_:
-                    f_.write(self.f.read(int(object_size_str) - object_long_name_len))
+                    f_.write(self._f.read(int(object_size_str) - object_long_name_len))
                 self._target_paths.append(target_path)
             else:
-                ret_class_infos, ret_strings = libParser_(self.f, self._binary_file, self._logger).parse_mach().get_result()
+                ret_class_infos, ret_strings = libParser_(self._f, self._binary_file, self._logger).parse_mach().get_result()
                 self._update(ret_class_infos, self._class_infos)
                 self._strings = ret_strings.union(self._strings)
-            self.f.seek(end_header_offset + int(object_size_str))
-            if self.f.tell() >= arch_offset + size:
+            self._f.seek(end_header_offset + int(object_size_str))
+            if self._f.tell() >= arch_offset + size:
                 break
 
-        self.f.seek(now_offset)
+        self._f.seek(now_offset)
 
 
     def _parse_archs(self) -> None:
@@ -529,14 +525,14 @@ class libParser(baseParser):
         parse the all archs.
         :return:
         """
-        arch_num = int.from_bytes(self.f.read(4), byteorder=self._byteorder)
+        arch_num = int.from_bytes(self._f.read(4), byteorder=self._byteorder)
         for _ in range(arch_num):
-            CPU_type = int.from_bytes(self.f.read(4), byteorder=self._byteorder)
+            CPU_type = int.from_bytes(self._f.read(4), byteorder=self._byteorder)
             CPU_type = CPU_TYPES[CPU_type] if CPU_type in CPU_TYPES else "unknow"
-            CPU_SubType = int.from_bytes(self.f.read(4), byteorder=self._byteorder)
-            arch_offset = int.from_bytes(self.f.read(4), byteorder=self._byteorder)
-            arch_size = int.from_bytes(self.f.read(4), byteorder=self._byteorder)
-            self.f.read(4)  # Align
+            CPU_SubType = int.from_bytes(self._f.read(4), byteorder=self._byteorder)
+            arch_offset = int.from_bytes(self._f.read(4), byteorder=self._byteorder)
+            arch_size = int.from_bytes(self._f.read(4), byteorder=self._byteorder)
+            self._f.read(4)  # Align
             print("handle arch: ", CPU_type, CPU_SubType)
 
             sub_extract_path = None
@@ -553,19 +549,19 @@ class libParser(baseParser):
         :return:
         """
         with open(self._binary_file, "rb") as f:
-            self.f = f
-            magic = self.f.read(8).hex()
+            self._f = f
+            magic = self._f.read(8).hex()
             if magic == "213c617263683e0a":
-                file_size = self.f.seek(0, 2) - self.f.seek(0)
+                file_size = self._f.seek(0, 2) - self._f.seek(0)
                 self._parse_arch(0, file_size, self._extract_path)
                 return self
-            self.f.seek(0)
-            magic = self.f.read(4).hex()
+            self._f.seek(0)
+            magic = self._f.read(4).hex()
             if magic == "cffaedfe" or magic == "cefaedfe":
                 if self._extract_path is not None:
                     self._target_paths.append(self._binary_file)
-                self.f.seek(0)
-                self._class_infos, self._strings = libParser_(self.f, self._binary_file, self._logger).parse_mach().get_result()
+                self._f.seek(0)
+                self._class_infos, self._strings = libParser_(self._f, self._binary_file, self._logger).parse_mach().get_result()
                 return self
             if magic == "cafebabe":
                 self._byteorder = "big"
@@ -575,6 +571,7 @@ class libParser(baseParser):
                 return self
             self._parse_archs()
             return self
+
 
     def get_result(self):
         if not self._target_paths:
@@ -611,5 +608,3 @@ def test_parse():
 if __name__ == "__main__":
     test_extract()
     test_parse()
-
-

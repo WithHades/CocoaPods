@@ -16,19 +16,19 @@ print("time" + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
 idc.auto_wait()
 
 sc = idautils.Strings()
-strings = []
+strings = set()
 for s in sc:
-    strings.append(str(s).strip())
+    strings.add(str(s).strip())
 
-method_signs = []
+method_signs = set()
 for ea in idautils.Functions():
     if idc.get_func_flags(ea) & (idc.FUNC_LIB | idc.FUNC_THUNK):
         continue
     func_name = idc.get_func_name(ea)
     if func_name.startswith("+[") or func_name.startswith("-["):
-        method_signs.append(func_name)
+        method_signs.add(func_name)
 
 with open(result_path, "w") as f:
-    json.dump([strings, method_signs], f)
+    json.dump([list(method_signs), list(strings)], f)
 
 idc.qexit(0)
