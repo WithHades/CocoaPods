@@ -1,8 +1,5 @@
 import logging
 import os
-import re
-
-import chardet
 
 
 def config_log(name, level, log_path):
@@ -40,24 +37,4 @@ def parse_file_type(source_files: str) -> [None, list]:
     return None
 
 
-def decode_oct_str(string: str) -> str:
-    """
-    decode a string than contains octal characters.
-    for example:
-    string = "\\345\\244\\247\\345\\256\\266\\345\\245\\275\\343\\200\\202"
-    return "大家好。"
-    :param string: result of decoding by utf-8
-    :return:
-    """
-    if len(string) != 0:
-        model = re.findall(r"((\\\d{3})+)", string)
-        for m in model:
-            byte_m = b''
-            for c in m[0].split("\\")[1:]:
-                byte_m += int.to_bytes(int(c, 8), length=1, byteorder='little')
-            try:
-                str_m = str(byte_m, chardet.detect(byte_m).get('encoding'))
-                string = string.replace(m[0], str_m)
-            except Exception as e:
-                print(e)
-    return string
+
