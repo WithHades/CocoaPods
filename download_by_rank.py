@@ -80,9 +80,10 @@ def main(max_workers):
     with ThreadPoolExecutor(max_workers) as threadPool:
         for lib in rank_info:
             if "lib_name" not in lib:
-                logger.info("Could not find useful information. details: {0}".format(json.dumps(lib)))
+                logger.info("Could not find useful information")
                 continue
             lib_name = lib["lib_name"]
+            version_num = 0
             for lib_details in lib_source_info.find({"name": lib_name}):
                 lib_version = lib_details["version"]
                 if "source" not in lib_details:
@@ -94,7 +95,9 @@ def main(max_workers):
 
                 count += 1
                 logger.info("submit: %d, %s: %s: %s" % (count, lib_name, lib_version, source))
-
+                version_num += 1
+                if version_num >= 5:
+                    break
                 if count < 50:
                     continue
                 count = 0
