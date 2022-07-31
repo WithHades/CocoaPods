@@ -62,7 +62,7 @@ class feature_extract(logger_):
         """
         method_signs, strings = set(), set()
         # parse the c/c++/objective-c files
-        if code_file.endswith(".h") or code_file.endswith(".m") or code_file.endswith(".c"):
+        if code_file.endswith(".h") or code_file.endswith(".m")  or code_file.endswith(".mm") or code_file.endswith(".c"):
             if self._libclang is not None:
                 self._logger.debug("using libclang to parse code file, code_file: %s" % code_file)
                 parser = libclang(code_file, self._libclang, self._logger)
