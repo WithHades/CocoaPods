@@ -90,7 +90,7 @@ class clang(logger_):
         """
         parser c/c++/objective-c code by clang.
         """
-        if not self._code_file.endswith(".m") and not self._code_file.endswith(".h") and not self._code_file.endswith(".c"):
+        if not self._code_file.endswith(".m") and not self._code_file.endswith(".mm") and not self._code_file.endswith(".h") and not self._code_file.endswith(".c"):
             return self
 
         pwd = os.getcwd()
