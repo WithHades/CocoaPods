@@ -67,11 +67,14 @@ class feature_extract(logger_):
                 self._logger.debug("using libclang to parse code file, code_file: %s" % code_file)
                 parser = libclang(code_file, self._libclang, self._logger)
                 method_signs, strings = parser.parse().get_result()
+                self._logger.debug("find {} methods and {} strings in {}.".format(len(method_signs), len(strings), str(code_file)))
                 self._method_signs = self._method_signs.union(method_signs)
                 self._strings = self._strings.union(strings)
             if self._compiler is not None:
+                self._logger.debug("using clang to parse code file, code_file: %s" % code_file)
                 parser = clang(code_file, self._compiler, self._logger)
                 method_signs, strings = parser.parse().get_result()
+                self._logger.debug("find {} methods and {} strings in {}.".format(len(method_signs), len(strings), str(code_file)))
                 self._method_signs = self._method_signs.union(method_signs)
                 self._strings = self._strings.union(strings)
 
@@ -86,6 +89,7 @@ class feature_extract(logger_):
         if isinstance(source_files, str):
             source_files = [source_files]
         for source_file in source_files:
+            self._logger.debug("processing source_file: %s" % str(source_file))
             source_file_re = self.get_regex(source_file)
             self._logger.debug("source_file_re: %s, source_file: %s, file_path: %s" % (source_file_re, source_file, self._file_path))
             for root, dirs, files in os.walk(self._file_path):
@@ -107,8 +111,10 @@ class feature_extract(logger_):
         :return:
         """
         try:
+            self._logger.debug("processing binary: %s" % str(code_file))
             parser = binaries(code_file, self._ida_path, self._tiny_parser, self._logger)
             ret_method_signs, ret_strings = parser.parse().get_result()
+            self._logger.debug("find {} methods and {} strings in {}.".format(len(ret_method_signs), len(ret_strings), str(code_file)))
             self._method_signs = self._method_signs.union(ret_method_signs)
             self._strings = self._strings.union(ret_strings)
         except Exception as e:
@@ -125,6 +131,7 @@ class feature_extract(logger_):
         if isinstance(vendored_libraries, str):
             vendored_libraries = [vendored_libraries]
         for vendored_library in vendored_libraries:
+            self._logger.debug("processing vendored_library: %s" % str(vendored_library))
             vendored_library_re = self.get_regex(vendored_library)
             for root, dirs, files in os.walk(self._file_path):
                 for file in files:
@@ -150,6 +157,7 @@ class feature_extract(logger_):
         if isinstance(vendored_frameworks, str):
             vendored_frameworks = [vendored_frameworks]
         for vendored_framework in vendored_frameworks:
+            self._logger.debug("processing vendored_framework: %s" % str(vendored_framework))
             vendored_framework_re = self.get_regex(vendored_framework)
             for root, dirs, files in os.walk(self._file_path):
                 for file in files:
@@ -188,13 +196,10 @@ class feature_extract(logger_):
         """
         if "source_files" in source_info:
             self.parse_code_files(source_info["source_files"])
-            self._logger.debug("parse_code_files")
         if "vendored_frameworks" in source_info:
             self.parse_framework(source_info["vendored_frameworks"])
-            self._logger.debug("vendored_frameworks")
         if "vendored_libraries" in source_info:
             self.parse_libraries(source_info["vendored_libraries"])
-            self._logger.debug("vendored_libraries")
 
         self.update_to_mongodb(subspecs_name)
 
