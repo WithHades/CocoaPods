@@ -30,7 +30,8 @@ class global_var:
 
 
 class feature_extract(logger_):
-    def __init__(self, lib_name: str, lib_version: str, file_path: str, mongo, ida_path: str = None, compiler: str = None, libclang: str = None, logger=None):
+    def __init__(self, lib_name: str, lib_version: str, file_path: str, mongo, ida_path: str = None,
+                 compiler: str = None, libclang: str = None, tiny_parser: bool = True, logger=None):
         super().__init__(logger)
         self._lib_name = lib_name
         self._lib_version = lib_version
@@ -39,7 +40,7 @@ class feature_extract(logger_):
         self._ida_path = ida_path
         self._libclang = libclang
         self._compiler = compiler
-
+        self._tiny_parser = tiny_parser
         self._method_signs = set()
         self._strings = set()
 
@@ -65,11 +66,14 @@ class feature_extract(logger_):
             if self._libclang is not None:
                 self._logger.debug("using libclang to parse code file, code_file: %s" % code_file)
                 parser = libclang(code_file, self._libclang, self._logger)
-            else:
+                method_signs, strings = parser.parse().get_result()
+                self._method_signs = self._method_signs.union(method_signs)
+                self._strings = self._strings.union(strings)
+            if self._compiler is not None:
                 parser = clang(code_file, self._compiler, self._logger)
-            method_signs, strings = parser.parse().get_result()
-        self._method_signs = self._method_signs.union(method_signs)
-        self._strings = self._strings.union(strings)
+                method_signs, strings = parser.parse().get_result()
+                self._method_signs = self._method_signs.union(method_signs)
+                self._strings = self._strings.union(strings)
 
 
     def parse_code_files(self, source_files: [str, list]) -> None:
@@ -103,7 +107,7 @@ class feature_extract(logger_):
         :return:
         """
         try:
-            parser = binaries(code_file, self._ida_path, self._logger)
+            parser = binaries(code_file, self._ida_path, self._tiny_parser, self._logger)
             ret_method_signs, ret_strings = parser.parse().get_result()
             self._method_signs = self._method_signs.union(ret_method_signs)
             self._strings = self._strings.union(ret_strings)
@@ -203,7 +207,7 @@ class feature_extract(logger_):
                 self.parse_source_info(source_info[key], subspecs_name)
 
 
-def main(compiler, libclang, ida_path, drop, loglevel):
+def main(compiler, libclang, ida_path, tiny_parser, drop, loglevel):
     lib_path = "../libraries"
     if not os.path.exists(lib_path):
         return
@@ -228,7 +232,8 @@ def main(compiler, libclang, ida_path, drop, loglevel):
             logger.error("Could not find library in database! file_path: %s" % file_path)
             continue
         logger.debug("processing library: %s, version: %s" % (lib_name, lib_version))
-        fe = feature_extract(lib_name=lib_name, lib_version=lib_version, file_path=file_path, mongo=mongo, ida_path=ida_path, compiler=compiler, libclang=libclang, logger=logger)
+        fe = feature_extract(lib_name=lib_name, lib_version=lib_version, file_path=file_path, mongo=mongo,
+                             ida_path=ida_path, compiler=compiler, libclang=libclang, tiny_parser=tiny_parser, logger=logger)
         fe.parse_source_info(ret)
 
 
@@ -237,7 +242,8 @@ if __name__ == '__main__':
     parser.add_argument('--compiler', default="clang", help="the path of clang compiler. Help to parser the c/oc files.")
     parser.add_argument('--libclang', help="the path of libclang.so. Help to parser the c/oc files.")
     parser.add_argument('--ida_path', help="the path of ida64. Help to parser the binaries files.")
+    parser.add_argument('--tiny_parser', default=True, action='store_false', help="use the tiny parser to parser the binaries files.")
     parser.add_argument('--drop', default=False, action='store_true', help="Does drop the clooections of feature_method, feature_string and feature_lib.")
     parser.add_argument('--loglevel', default='INFO')
     args = parser.parse_args()
-    main(args.compiler, args.libclang, args.ida_path, args.drop, args.loglevel)
+    main(args.compiler, args.libclang, args.ida_path, args.tiny_parser, args.drop, args.loglevel)
