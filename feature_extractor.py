@@ -242,7 +242,7 @@ def main(compiler, libclang, ida_path, tiny_parser, drop, loglevel):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='The parser for libraries.')
-    parser.add_argument('--compiler', default="clang", help="the path of clang compiler. Help to parser the c/oc files.")
+    parser.add_argument('--compiler', help="the path of clang compiler. Help to parser the c/oc files.")
     parser.add_argument('--libclang', help="the path of libclang.so. Help to parser the c/oc files.")
     parser.add_argument('--ida_path', help="the path of ida64. Help to parser the binaries files.")
     parser.add_argument('--tiny_parser', default=True, action='store_false', help="use the tiny parser to parser the binaries files.")
