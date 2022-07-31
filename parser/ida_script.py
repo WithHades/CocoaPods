@@ -25,8 +25,7 @@ for ea in idautils.Functions():
     if idc.get_func_flags(ea) & (idc.FUNC_LIB | idc.FUNC_THUNK):
         continue
     func_name = idc.get_func_name(ea)
-    if func_name.startswith("+[") or func_name.startswith("-["):
-        method_signs.add(func_name)
+    method_signs.add(func_name)
 
 with open(result_path, "w") as f:
     json.dump([list(method_signs), list(strings)], f)
