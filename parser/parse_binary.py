@@ -9,10 +9,11 @@ from .base_logger import logger_
 
 class binaries(logger_):
 
-    def __init__(self, binary_file: str, ida_path: str = None, logger=None):
+    def __init__(self, binary_file: str, ida_path: str = None, tiny_parser: bool = True, logger=None):
         super().__init__(logger)
         self._binary_file = binary_file
         self._ida_path = ida_path
+        self._tiny_parser = tiny_parser
         self._method_signs = set()
         self._strings = set()
 
@@ -41,7 +42,9 @@ class binaries(logger_):
             with open("result.txt", "w") as f:
                 data = json.load(f)
             os.remove("result.txt")
-            self._method_signs, self._strings = set(data[0]), set(data[1])
+            ret_method_signs, ret_strings = set(data[0]), set(data[1])
+            self._method_signs = self._method_signs.union(ret_method_signs)
+            self._strings = self._strings.union(ret_strings)
         shutil.rmtree(tmp_path)
 
 
@@ -51,9 +54,10 @@ class binaries(logger_):
         :return:
         """
         parser = libParser(self._binary_file)
-        class_infos, self._strings = parser.parse().get_result()
+        class_infos, strings = parser.parse().get_result()
         for key in class_infos:
             self._method_signs = self._method_signs.union(set(class_infos[key]))
+        self._strings = self._strings.union(set(self._strings))
 
 
     def parse(self):
@@ -63,7 +67,7 @@ class binaries(logger_):
         """
         if self._ida_path is not None:
             self.parse_by_ida()
-        else:
+        if self._tiny_parser:
             self.parse_by_tiny()
         return self
 
