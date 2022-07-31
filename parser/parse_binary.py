@@ -57,7 +57,7 @@ class binaries(logger_):
         class_infos, strings = parser.parse().get_result()
         for key in class_infos:
             self._method_signs = self._method_signs.union(set(class_infos[key]))
-        self._strings = self._strings.union(set(self._strings))
+        self._strings = self._strings.union(set(strings))
 
 
     def parse(self):
