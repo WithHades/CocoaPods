@@ -169,8 +169,11 @@ class libclang(logger_):
                 method_sign += "[{} {}]".format(cursor.lexical_parent.displayname, cursor.displayname)
             else:
                 usr = cursor.get_usr()
-                method_sign += "[{} {}]".format(usr[usr.find(")") + 1: usr.rfind(")")], cursor.displayname)
-                self._method_signs.add(method_sign)
+                if usr[usr.find(")") + 1: usr.rfind(")")] != "":
+                    method_sign += "[{} {}]".format(usr[usr.find(")") + 1: usr.rfind(")")], cursor.displayname)
+                    self._method_signs.add(method_sign)
+                else:
+                    self._logger.debug("could not find class name: {}".format(self._code_file))
 
         # recursion traverse the children.
         for cur in cursor.get_children():
