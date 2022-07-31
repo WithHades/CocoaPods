@@ -232,9 +232,12 @@ def main(compiler, libclang, ida_path, tiny_parser, drop, loglevel):
             logger.error("Could not find library in database! file_path: %s" % file_path)
             continue
         logger.debug("processing library: %s, version: %s" % (lib_name, lib_version))
-        fe = feature_extract(lib_name=lib_name, lib_version=lib_version, file_path=file_path, mongo=mongo,
-                             ida_path=ida_path, compiler=compiler, libclang=libclang, tiny_parser=tiny_parser, logger=logger)
-        fe.parse_source_info(ret)
+        try:
+            fe = feature_extract(lib_name=lib_name, lib_version=lib_version, file_path=file_path, mongo=mongo,
+                                 ida_path=ida_path, compiler=compiler, libclang=libclang, tiny_parser=tiny_parser, logger=logger)
+            fe.parse_source_info(ret)
+        except Exception as e:
+            logger.error("A error occured! msg: " + e.args[0])
 
 
 if __name__ == '__main__':
