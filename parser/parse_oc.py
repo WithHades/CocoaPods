@@ -141,7 +141,8 @@ class libclang(logger_):
         """
         super().__init__(logger)
         self._code_file = code_file
-        Config.set_library_file(libclang)
+        if not Config.loaded:
+            Config.set_library_file(libclang)
 
         self._method_signs = set()
         self._strings = set()
