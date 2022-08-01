@@ -1,20 +1,16 @@
+import argparse
+import json
 import logging
 import os
+import sys
 
 import pymongo
 
+
+sys.path.insert(0, "D:/workplace/python/angr")
 import utils
-from ALibFileParser import parse
-
-
-class global_var:
-    file_path = None
-
-    def __init__(self, logger, feature_string, feature_method, feature_lib):
-        self.logger = logger
-        self.feature_string = feature_string
-        self.feature_method = feature_method
-        self.feature_lib = feature_lib
+from CocoaPods.parser.parse_binary import binaries
+import secret
 
 
 def get_db_collecttions():
@@ -26,34 +22,80 @@ def get_db_collecttions():
     return feature_string, feature_method, feature_lib
 
 
-def detect_by_simple(app_path, global_vals):
-    try:
-        method_signs_dict, strings = parse(app_path)
-    except Exception as e:
-        global_vals.logger.error("An error occured in detect_by_simple, code_file: %s, error: %s", (app_path, e.args[0]))
+def get_value_by_len(data, length):
+    if len(data) <= length:
+        yield data
         return
-    method_signs = []
-    for key in method_signs_dict:
-        method_signs = list(set(method_signs).union(set(method_signs_dict[key])))
+    right = 0
+    while len(data) - right >= length:
+        yield data[right: right + length]
+        right += length
+    if right < len(data):
+        yield data[right:]
+
+
+def detect_by_simple(app_path, ida_path, tiny_parser, feature_string, feature_method, feature_lib, logger):
+    try:
+        parser = binaries(app_path, ida_path, tiny_parser, logger)
+        method_signs, strings = parser.parse().get_result()
+    except Exception as e:
+        logger.error("An error occured in detect_by_simple, code_file: %s, error: %s", (app_path, e.args[0]))
+        return
+    print("find {} methods and {} strings".format(len(method_signs), len(strings)))
     hit_libraries = {}
     hit_methods = {}
-    for method_sign in method_signs:
-        for hit in global_vals.feature_method.find({"method": method_sign}):
+    find_len = 500
+    for method_sign in get_value_by_len(list(method_signs), length=find_len):
+        for hit in feature_method.find({"method": {"$in": method_sign}}):
+            print("hit method: ", hit)
             hit_methods[hit['method']] = hit["library"]
-            hit_libraries[hit["library"]] = {}
-            hit_libraries[hit["library"]]["methods"] = hit['method']
+            for hit_lib in hit["library"]:
+
+                if hit_lib["name"] not in hit_libraries:
+                    hit_libraries[hit_lib["name"]] = {}
+                if "method" not in hit_libraries[hit_lib["name"]]:
+                    hit_libraries[hit_lib["name"]]['version'] = hit_lib['version']
+                    hit_libraries[hit_lib["name"]]['method'] = []
+
 
     hit_strings = {}
-    for string in strings:
-        for hit in global_vals.feature_string.find({"string": string}):
-            hit_strings[hit['string']] = hit["string"]
-            hit_libraries[hit["library"]] = {}
-            hit_libraries[hit["library"]]["strings"] = hit['string']
+    for string in get_value_by_len(list(strings), length=find_len):
+        for hit in feature_string.find({"string": {"$in": string}}):
+            print("hit string: ", hit)
+            hit_strings[hit['string']] = hit["library"]
+            for hit_lib in hit["library"]:
+                if hit_lib["name"] not in hit_libraries:
+                    hit_libraries[hit_lib["name"]] = {}
+                if "string" not in hit_libraries[hit_lib["name"]]:
+                    hit_libraries[hit_lib["name"]]['version'] = hit_lib['version']
+                    hit_libraries[hit_lib["name"]]['string'] = []
+                hit_libraries[hit_lib["name"]]["string"].append(hit['string'])
+
+    return hit_libraries, hit_methods, hit_strings
 
 
-def main():
-    logger = utils.config_log(name=__name__, level=logging.INFO, log_path="./logs/{}.log".format(os.path.basename(__file__).replace(".py", "")))
+def resort_libraries(hit_libraries, hit_methods, hit_strings):
+    for method in hit_methods:
+        if len(hit_libraries[method]):
+            pass
+
+
+def main(app_path, ida_path, tiny_parser, loglevel):
+    logger = config_log(name=__name__, level=loglevel, log_path="./logs/{}.log".format(os.path.basename(__file__).replace(".py", "")))
     feature_string, feature_method, feature_lib = get_db_collecttions()
-    global_vals = global_var(logger, feature_string, feature_method, feature_lib)
-    detect_by_simple(app_path, global_vals)
+    hit_libraries, hit_methods, hit_strings = detect_by_simple(app_path, ida_path, tiny_parser, feature_string, feature_method, feature_lib, logger)
+    resort_libraries(hit_libraries, hit_methods, hit_strings)
+    hit = {"hit_libraries": hit_libraries, "hit_methods": hit_methods, "hit_strings": hit_strings}
+    with open("hit_results.txt", "w") as f:
+        json.dump(hit, f)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Detect the library in the specified app.')
+    parser.add_argument('--app_path', help="the path of app that wants to be parsed.")
+    parser.add_argument('--ida_path', help="the path of ida64. Help to parser the binaries files.")
+    parser.add_argument('--tiny_parser', default=True, action='store_false', help="use the tiny parser to parser the binaries files.")
+    parser.add_argument('--loglevel', default='INFO')
+    args = parser.parse_args()
+    main(args.app_path, args.ida_path, args.tiny_parser, args.loglevel)
 
