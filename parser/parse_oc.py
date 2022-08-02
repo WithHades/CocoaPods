@@ -28,7 +28,7 @@ def decode_oct_str(string: str) -> str:
                 str_m = str(byte_m, chardet.detect(byte_m).get('encoding'))
                 string = string.replace(m[0], str_m)
             except Exception as e:
-                print(e)
+                pass
     return string
 
 
@@ -90,7 +90,8 @@ class clang(logger_):
         """
         parser c/c++/objective-c code by clang.
         """
-        if not self._code_file.endswith(".m") and not self._code_file.endswith(".mm") and not self._code_file.endswith(".h") and not self._code_file.endswith(".c"):
+        if not self._code_file.endswith(".m") and not self._code_file.endswith(".mm") \
+                and not self._code_file.endswith(".h") and not self._code_file.endswith(".c") and not self._code_file.endswith(".cpp"):
             return self
 
         pwd = os.getcwd()
@@ -169,8 +170,9 @@ class libclang(logger_):
                 method_sign += "[{} {}]".format(cursor.lexical_parent.displayname, cursor.displayname)
             else:
                 usr = cursor.get_usr()
-                if usr[usr.find(")") + 1: usr.rfind(")")] != "":
-                    method_sign += "[{} {}]".format(usr[usr.find(")") + 1: usr.rfind(")")], cursor.displayname)
+                class_name = usr[usr.find(")") + 1: usr.rfind("(")]
+                if class_name != "":
+                    method_sign += "[{} {}]".format(class_name, cursor.displayname)
                     self._method_signs.add(method_sign)
                 else:
                     self._logger.debug("could not find class name: {}".format(self._code_file))
