@@ -10,6 +10,11 @@ class mongodb:
         self._subspecs_name = ""
         self._get_db_collecttions()
 
+
+    def get_all_collections(self):
+        return self._db.list_collections()
+
+
     def set_lib(self, lib_name, lib_version, subspecs_name):
         self._lib_name = lib_name
         self._lib_version = lib_version
