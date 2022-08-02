@@ -84,6 +84,7 @@ class mongodb:
         :param strings: A set of strings.
         :return:
         """
+        strings = set([x for x in strings if len(x) > 3])
         self.update_library_lib(method_signs, strings)
         self.update_library_mtd(method_signs)
         self.update_library_str(strings)
