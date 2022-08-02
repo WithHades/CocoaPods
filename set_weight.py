@@ -44,15 +44,14 @@ def main():
             sums_ = sum(weight_lengths)
             weight_lengths = [length/sums_ for length in weight_lengths]
 
-            weight_fields = {}
+            weight_fields = []
             for length, weight_length in zip(lengths, weight_lengths):
                 # 计算组内权重
                 field_weight = weight_length / len(count_col[length])
                 for field_ in count_col[length]:
                     if len(field_) > 3:
-                        weight_fields[field_] = field_weight
+                        weight_fields.append({"key": field_, "weight": field_weight})
 
-            print({field: weight_fields})
             feature_weight.update_one(base_query, {"$set": {field: weight_fields}}, True)
 
         get_weights("method", lib, feature_method)
