@@ -53,7 +53,7 @@ def main():
                         weight_fields[field_] = field_weight
 
             print({field: weight_fields})
-            feature_weight.update(base_query, {"$set": {field: weight_fields}}, True)
+            feature_weight.update_one(base_query, {"$set": {field: weight_fields}}, True)
 
         get_weights("method", lib, feature_method)
         get_weights("string", lib, feature_string)
