@@ -62,7 +62,7 @@ class feature_extract(logger_):
         """
         method_signs, strings = set(), set()
         # parse the c/c++/objective-c files
-        if code_file.endswith(".h") or code_file.endswith(".m")  or code_file.endswith(".mm") or code_file.endswith(".c"):
+        if code_file.endswith(".h") or code_file.endswith(".m")  or code_file.endswith(".mm") or code_file.endswith(".c") or code_file.endswith(".cpp"):
             if self._libclang is not None:
                 self._logger.debug("using libclang to parse code file, code_file: %s" % code_file)
                 parser = libclang(code_file, self._libclang, self._logger)
@@ -99,7 +99,7 @@ class feature_extract(logger_):
                         if len(re.findall(source_file_re, code_file)) <= 0:
                             continue
                     except Exception as e:
-                        self._logger.error("reg is error! source_file_re: %s, code_file: %s" % (source_file_re, code_file))
+                        self._logger.error("regex is wrong! source_file_re: %s, code_file: %s" % (source_file_re, code_file))
                         continue
                     self.parse_code_file(code_file)
 
@@ -139,7 +139,7 @@ class feature_extract(logger_):
                     try:
                         if len(re.findall(vendored_library_re, code_file)) <= 0: continue
                     except Exception as e:
-                        self._logger.error("reg is error! source_file_re: %s, code_file: %s" % (vendored_library_re, code_file))
+                        self._logger.error("regex is wrong! source_file_re: %s, code_file: %s" % (vendored_library_re, code_file))
                         continue
                     if not code_file.endswith(".a"):
                         continue
@@ -165,7 +165,7 @@ class feature_extract(logger_):
                     try:
                         if len(re.findall(vendored_framework_re, root)) <= 0: continue
                     except Exception as e:
-                        self._logger.error("reg is error! parse_framework: %s, code_file: %s" % (vendored_framework_re, code_file))
+                        self._logger.error("regex is wrong! parse_framework: %s, code_file: %s" % (vendored_framework_re, code_file))
                         continue
                     if ".framework" not in code_file and ".xcframework" not in code_file:
                         continue
