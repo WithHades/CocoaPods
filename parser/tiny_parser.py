@@ -1,5 +1,7 @@
+import json
 import math
 import os.path
+import re
 
 from .base_logger import logger_
 
@@ -40,6 +42,7 @@ class LCName:
     LC_CODE_SIGNATURE = 0x1D
     LC_ENCRPTION_INFO = 0x21
     LC_SYMTAB = 0x2
+    LC_FUNCTION_STARTS = 0x26
 
 
 class baseParser(logger_):
@@ -95,6 +98,28 @@ class baseParser(logger_):
         return trans_bytes.decode("utf-8")
 
 
+    def _read_uleb128(self) -> int:
+        """
+        read a uleb128 int from current position.
+        :return: a uleb128 int
+        """
+        result, bit = 0, 0
+        while True:
+            slice = ord(self._f.read(1)) & 0x7f
+            if bit >= 64 or slice << bit >> bit != slice:
+                raise
+            else:
+                result |= (slice << bit)
+                bit += 7
+            slice = ord(self._f.read(1))
+            self._f.seek(-1, 1)
+            if slice & 0x80:
+                continue
+            result |= (slice << bit)
+            break
+        return result
+
+
 class libParser_(baseParser):
 
     def __init__(self, f, binary_file, logger=None):
@@ -107,7 +132,12 @@ class libParser_(baseParser):
         self._var_len = 4
         self._byteorder = "little"
         self._segments = {}
+        self._strtab = {}
         self._symbols = []
+        self._re_symbols = {}
+        self._function_starts_offset = 0
+        self._function_starts_size = 0
+
         # relocation table.
         self._relo_table = {}
 
@@ -218,7 +248,6 @@ class libParser_(baseParser):
             self._parse_class(class_offset, methType="-")
 
 
-
     def _parse_string_from_section(self, section_name: str, read_func) -> None:
         """
         read strings from sections and update to strings.
@@ -273,6 +302,34 @@ class libParser_(baseParser):
             if self._arch == 64:
                 self._f.read(4)
 
+        # statistics the segment.
+        segments_path = os.path.join(os.path.basename(__file__), "segments.json")
+        if os.path.exists(segments_path):
+            with open(segments_path, "r") as f:
+                tmp_segments = json.load(f)
+        else:
+            tmp_segments = {}
+        for segment in self._segments:
+            if segment not in tmp_segments:
+                tmp_segments[segment] = {"section": [], "filename": self._binary_file}
+            for section in self._segments[segment]:
+                if section not in tmp_segments[segment][section]:
+                    tmp_segments[segment][section].append(section)
+                    tmp_segments[segment]["filename"] = self._binary_file
+        with open(segments_path, "w") as f:
+            json.dump(tmp_segments, f)
+
+
+    # TODO!
+    def _parse_string_symbol(self):
+        for strsym in self._strtab:
+            strsym = self._strtab[strsym]
+            strsym = re.sub(r"\W", "_", strsym)
+            if strsym.startswith("_$s"):
+                pass
+            if strsym.startswith("+[") or strsym.startswith("-]"):
+                pass
+
 
     def _parse_symtab(self) -> None:
         """
@@ -283,16 +340,33 @@ class libParser_(baseParser):
         string_table_offset = int.from_bytes(self._f.read(4), byteorder=self._byteorder)
         string_table_size = int.from_bytes(self._f.read(4), byteorder=self._byteorder)
         _offset = self._f.tell()
+
+        self._f.seek(self._macho_offset + string_table_offset)
+        while self._f.tell() < self._macho_offset + string_table_offset + string_table_size:
+            str_offset = self._f.tell()
+            self._strtab[str_offset - string_table_offset - self._macho_offset] = self._read_string()
+
         self._f.seek(self._macho_offset + symbol_table_offset)
         for symbol in range(symbol_table_number):
             string_table_index = int.from_bytes(self._f.read(4), byteorder=self._byteorder)
+            string_value = self._strtab[string_table_index]
             symbol_type = int.from_bytes(self._f.read(1), byteorder=self._byteorder)
             symbol_section_index = int.from_bytes(self._f.read(1), byteorder=self._byteorder)
             symbol_description = int.from_bytes(self._f.read(2), byteorder=self._byteorder)
             symbol_value = int.from_bytes(self._f.read(self._var_len), byteorder=self._byteorder)
-            self._symbols.append([string_table_index, symbol_type, symbol_section_index, symbol_description, symbol_value])
+            self._symbols.append([string_value, symbol_type, symbol_section_index, symbol_description, symbol_value])
+            self._re_symbols[symbol_value] = string_value
+
         self._f.seek(_offset)
 
+
+    # TODO, parse the function starts. We can directly parse the string table, so delay this work.
+    def _parse_function_starts(self):
+        _offset = self._f.tell()
+        self._f.seek(self._macho_offset + self._function_starts_offset)
+        address = 0
+        while self._f.tell() < self._macho_offset + self._function_starts_offset + self._function_starts_size:
+            address += self._read_uleb128()
 
 
     def _parse_load_commands(self, lc_num: int) -> None:
@@ -309,6 +383,9 @@ class libParser_(baseParser):
                 self._parse_segments()
             elif lc_cmd == LCName.LC_SYMTAB:
                 self._parse_symtab()
+            elif lc_cmd == LCName.LC_FUNCTION_STARTS:
+                self._function_starts_offset = int.from_bytes(self._f.read(4), byteorder=self._byteorder)
+                self._function_starts_size = int.from_bytes(self._f.read(4), byteorder=self._byteorder)
             else:
                 self._f.read(lc_cmd_size - 8)
 
@@ -394,7 +471,7 @@ class libParser_(baseParser):
 
 
 class libParser(baseParser):
-    
+
     def __init__(self, binary_file: str, extract_path: str = None, logger=None):
         """
         :param binary_file: the binary file that wants to be parsed.
@@ -502,7 +579,7 @@ class libParser(baseParser):
             end_header_offset = self._f.tell()
             object_long_name_len = int(object_name.strip()[3:])
             object_long_name = self._read_string_from_bytes(self._f.read(object_long_name_len))
-            print("handle " + object_long_name)
+            # print("handle " + object_long_name)
 
             if sub_extract_path is not None:
                 target_path = os.path.join(sub_extract_path, object_long_name)
@@ -533,7 +610,7 @@ class libParser(baseParser):
             arch_offset = int.from_bytes(self._f.read(4), byteorder=self._byteorder)
             arch_size = int.from_bytes(self._f.read(4), byteorder=self._byteorder)
             self._f.read(4)  # Align
-            print("handle arch: ", CPU_type, CPU_SubType)
+            # print("handle arch: ", CPU_type, CPU_SubType)
 
             sub_extract_path = None
             if self._extract_path is not None:
@@ -606,5 +683,5 @@ def test_parse():
 
 
 if __name__ == "__main__":
-    test_extract()
+    # test_extract()
     test_parse()
