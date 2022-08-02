@@ -19,7 +19,7 @@ def get_db_collecttions():
 
 def main():
     feature_string, feature_method, feature_lib, feature_weight = get_db_collecttions()
-    ret = feature_lib.find(no_cursor_timeout=True)
+    ret = feature_lib.find(timeout=False).batch_size(1)
     for lib in ret:
         def get_weights(field, lib, collection):
             base_query = {"name": lib["name"], "version": lib["version"]}
