@@ -19,7 +19,8 @@ def get_db_collecttions():
 
 def main():
     feature_string, feature_method, feature_lib, feature_weight = get_db_collecttions()
-    for lib in feature_lib.find():
+    ret = feature_lib.find(no_cursor_timeout=True)
+    for lib in ret:
         def get_weights(field, lib, collection):
             base_query = {"name": lib["name"], "version": lib["version"]}
             if "subspecs_name" in lib:
@@ -56,6 +57,8 @@ def main():
 
         get_weights("method", lib, feature_method)
         get_weights("string", lib, feature_string)
+
+    ret.close()
 
 
 if __name__ == "__main__":
