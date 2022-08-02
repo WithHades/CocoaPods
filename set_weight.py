@@ -49,11 +49,11 @@ def main():
                 # 计算组内权重
                 field_weight = weight_length / len(count_col[length])
                 for field_ in count_col[length]:
-                    print(field_, field_weight)
-                    weight_fields[field_] = field_weight
+                    if len(field_) > 3:
+                        weight_fields[field_] = field_weight
 
-            base_query.update({field: weight_fields})
-            feature_weight.insert_one(base_query)
+            # base_query.update({field: weight_fields})
+            feature_weight.update_one(base_query, {"$set": {field: weight_fields}}, True)
 
         get_weights("method", lib, feature_method)
         get_weights("string", lib, feature_string)
