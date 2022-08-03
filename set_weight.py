@@ -1,5 +1,5 @@
 import os
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pymongo
 
@@ -54,7 +54,7 @@ def get_weights(field, lib, collection):
 
 def update_weight(lib, feature_method, feature_string, feature_weight):
     methods_weight = get_weights("method", lib, feature_method)
-    strings_weight = get_weights("strings", lib, feature_string)
+    strings_weight = get_weights("string", lib, feature_string)
     base_query = {"name": lib["name"], "version": lib["version"]}
     if "subspecs_name" in lib:
         base_query.update({"subspecs_name": lib["subspecs_name"]})
@@ -63,14 +63,20 @@ def update_weight(lib, feature_method, feature_string, feature_weight):
     if strings_weight is not {}:
         base_query.update({"string": strings_weight})
     feature_weight.update_one(base_query, {"$set": base_query}, True)
+    return base_query
 
 
 def main():
     feature_string, feature_method, feature_lib, feature_weight = get_db_collecttions()
-    ret = feature_lib.find(no_cursor_timeout=True).batch_size(1)
+    ret = feature_lib.find({"subspecs_name": "standalone-fts"})
+    task = []
     with ThreadPoolExecutor(50) as threadPool:
         for lib in ret:
-            threadPool.submit(update_weight, lib, feature_method, feature_string, feature_weight)
+            task_ = threadPool.submit(update_weight, lib, feature_method, feature_string, feature_weight)
+            task.append(task_)
+        for future in as_completed(task):
+            print(future)
+            pass
     ret.close()
 
 
