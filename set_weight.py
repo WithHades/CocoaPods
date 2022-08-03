@@ -68,7 +68,7 @@ def update_weight(lib, feature_method, feature_string, feature_weight):
 
 def main():
     feature_string, feature_method, feature_lib, feature_weight = get_db_collecttions()
-    ret = feature_lib.find({"subspecs_name": "standalone-fts"})
+    ret = feature_lib.find()
     task = []
     with ThreadPoolExecutor(50) as threadPool:
         for lib in ret:
