@@ -11,7 +11,20 @@ class mongodb:
         self._get_db_collecttions()
 
 
+    def get_specific_col(self, col_name: str):
+        """
+        return the specific collection.
+        :param col_name:
+        :return:
+        """
+        return self._db[col_name]
+
+
     def get_all_collections(self):
+        """
+        get all collections.
+        :return:
+        """
         return self._db.list_collections()
 
 
