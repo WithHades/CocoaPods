@@ -75,8 +75,7 @@ def main():
             task_ = threadPool.submit(update_weight, lib, feature_method, feature_string, feature_weight)
             task.append(task_)
         for future in as_completed(task):
-            print(future)
-            pass
+            print(future.result())
     ret.close()
 
 
