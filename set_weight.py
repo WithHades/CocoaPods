@@ -3,7 +3,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pymongo
 
-import mongo
 if os.path.exists("secret.py"):
     import secret
 
