@@ -43,6 +43,7 @@ def main():
 
                 # 组间根据频率设置权重
                 lengths = list(count_col.keys())
+                # TODO: 是否可以根据方法签名中是否包含库的名字来确定?
                 weight_lengths = [1/length for length in lengths]
                 sums_ = sum(weight_lengths)
                 weight_lengths = [length/sums_ for length in weight_lengths]
